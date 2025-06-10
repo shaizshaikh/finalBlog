@@ -106,6 +106,7 @@ export default function AdminArticleForm({ article }: AdminArticleFormProps) {
 
   const onSubmit = async (data: ArticleFormData) => {
     setIsSubmitting(true);
+    console.log('AdminArticleForm: Form submitted with data:', JSON.stringify(data, null, 2));
     const articleDataForStore = {
       ...data,
       tags: data.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
@@ -113,25 +114,30 @@ export default function AdminArticleForm({ article }: AdminArticleFormProps) {
 
     try {
       if (article) { // Editing existing article
+        console.log('AdminArticleForm: Updating existing article ID:', article.id);
         await updateArticle({ ...article, ...articleDataForStore });
         toast({ title: 'Article Updated', description: `"${data.title}" has been updated.` });
       } else { // Creating new article
-        const newArticle = await addArticle(articleDataForStore);
+        console.log('AdminArticleForm: Creating new article with data:', JSON.stringify(articleDataForStore, null, 2));
+        const newArticle = await addArticle(articleDataForStore); // This calls the context's addArticle
+        
+        console.log('AdminArticleForm: Received newArticle object from context:', JSON.stringify(newArticle, null, 2));
+
         toast({ title: 'Article Created', description: `"${newArticle.title}" has been published.` });
         
-        // Send newsletter notification for the new article
-        // Ensure newArticle has all necessary fields like slug, excerpt for the email.
-        // The addArticle function should return the complete article object.
-        if (newArticle) {
-            console.log('Attempting to send new article notification for:', newArticle.title);
+        if (newArticle && newArticle.id) { // Check if newArticle and its ID are valid
+            console.log('AdminArticleForm: Attempting to send new article notification for:', newArticle.title, 'ID:', newArticle.id);
             await sendNewArticleNotification(newArticle);
             toast({ title: 'Newsletter Sent', description: `Notification for "${newArticle.title}" sent to subscribers.` });
+        } else {
+            console.error('AdminArticleForm: newArticle object is invalid or missing ID after creation. Article from context:', newArticle);
+            toast({ title: 'Notification Error', description: 'Could not send newsletter: article data incomplete after creation.', variant: 'destructive'});
         }
       }
       router.push('/admin');
     } catch (error) {
-      console.error('Failed to save article:', error);
-      toast({ title: 'Error', description: 'Could not save article.', variant: 'destructive' });
+      console.error('AdminArticleForm: Failed to save article:', error);
+      toast({ title: 'Error saving article', description: (error instanceof Error ? error.message : 'An unknown error occurred.'), variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }
@@ -217,5 +223,4 @@ export default function AdminArticleForm({ article }: AdminArticleFormProps) {
     </form>
   );
 }
-
     
