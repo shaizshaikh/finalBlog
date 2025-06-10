@@ -6,7 +6,7 @@ import { useArticles } from '@/contexts/ArticleContext'; // Using context for cl
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { aiEnhancedTagBasedSearch } from '@/ai/flows/tag-based-search';
-import { Loader2, SearchX } from 'lucide-react';
+import { Loader2, SearchX, Newspaper } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
