@@ -38,9 +38,9 @@ export async function subscribeToNewsletter(email: string): Promise<SubscribeRes
     // Insert or update subscriber (if they were inactive and re-subscribed)
     // ON CONFLICT ensures that if the email exists, it updates is_active and subscribed_at
     await pool.query(
-      `INSERT INTO subscribers (email, is_active, subscribed_at) 
+      `INSERT INTO subscribers (email, is_active, subscribed_at)
        VALUES ($1, TRUE, CURRENT_TIMESTAMP)
-       ON CONFLICT (email) 
+       ON CONFLICT (email)
        DO UPDATE SET is_active = TRUE, subscribed_at = CURRENT_TIMESTAMP`,
       [validatedEmail]
     );
@@ -100,7 +100,7 @@ export async function sendNewArticleNotification(article: Article) {
         <p>${article.excerpt || article.content.substring(0, 200)}...</p>
         <p><a href="${process.env.NEXT_PUBLIC_BASE_URL}/articles/${article.slug}">Read more</a></p>
         <hr>
-        <p><small>To unsubscribe, please visit our website (unsubscribe link coming soon!).</small></p>
+        <p><small>To unsubscribe, please visit <a href="${process.env.NEXT_PUBLIC_BASE_URL}/unsubscribe">our unsubscribe page</a>.</small></p>
       `,
     };
     return transporter.sendMail(mailOptions)
@@ -116,18 +116,32 @@ export async function sendNewArticleNotification(article: Article) {
   }
 }
 
-// Example of an unsubscribe function (you'll need a UI for this)
-// export async function unsubscribeFromNewsletter(email: string): Promise<SubscribeResult> {
-//   const validationResult = emailSchema.safeParse(email);
-//   if (!validationResult.success) {
-//     return { success: false, message: validationResult.error.issues[0].message };
-//   }
-//   const validatedEmail = validationResult.data;
-//   try {
-//     await pool.query('UPDATE subscribers SET is_active = FALSE WHERE email = $1', [validatedEmail]);
-//     return { success: true, message: `Successfully unsubscribed ${validatedEmail}.` };
-//   } catch (error) {
-//     console.error('Unsubscription error:', error);
-//     return { success: false, message: 'An error occurred during unsubscription.' };
-//   }
-// }
+export async function unsubscribeFromNewsletter(email: string): Promise<SubscribeResult> {
+  const validationResult = emailSchema.safeParse(email);
+  if (!validationResult.success) {
+    return { success: false, message: validationResult.error.issues[0].message };
+  }
+  const validatedEmail = validationResult.data;
+  console.log(`Attempting to unsubscribe email: ${validatedEmail}`);
+  try {
+    const subscriberCheck = await pool.query(
+      'SELECT * FROM subscribers WHERE email = $1',
+      [validatedEmail]
+    );
+
+    if (subscriberCheck.rows.length === 0) {
+      return { success: false, message: 'This email address is not subscribed.' };
+    }
+
+    if (!subscriberCheck.rows[0].is_active) {
+      return { success: true, message: 'This email address has already been unsubscribed.' };
+    }
+    
+    await pool.query('UPDATE subscribers SET is_active = FALSE, unsubscribed_at = CURRENT_TIMESTAMP WHERE email = $1', [validatedEmail]);
+    console.log(`Successfully unsubscribed: ${validatedEmail}`);
+    return { success: true, message: `Successfully unsubscribed ${validatedEmail}. You will no longer receive new article notifications.` };
+  } catch (error) {
+    console.error('Unsubscription database error:', error);
+    return { success: false, message: 'An error occurred during unsubscription. Please try again later.' };
+  }
+}

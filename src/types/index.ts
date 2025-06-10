@@ -21,10 +21,18 @@ export interface Comment {
   created_at: string; // ISO date string
   is_approved: boolean;
   likes: number;
-  dislikes: number; // Added for comment dislikes
+  dislikes: number;
 }
 
 export interface PaginatedComments {
   comments: Comment[];
   totalCount: number;
+}
+
+// For subscribers table
+export interface Subscriber {
+  email: string;
+  is_active: boolean;
+  subscribed_at: string; // ISO date string
+  unsubscribed_at?: string | null; // ISO date string, nullable
 }
