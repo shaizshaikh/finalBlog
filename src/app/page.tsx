@@ -87,7 +87,7 @@ export default function HomePage() {
             query: searchQuery,
             tags: queryTags, 
             articles: allArticlesForSearch.map(a => ({ 
-              id: a.id, 
+              // id: a.id, // id is not used by the AI flow for this search
               title: a.title, 
               content: a.excerpt || a.content.substring(0,200), 
               tags: a.tags 
@@ -200,8 +200,8 @@ export default function HomePage() {
 
   return (
     <div className="space-y-8">
-      {searchQuery && !isAISearchLoading && ( // Show search header only when search is active and not loading
-        <div className="mb-6 pb-4 border-b">
+      {searchQuery && !isAISearchLoading && !isLoadingDisplay && (
+        <div className="mb-8">
           <h1 className="text-3xl font-bold font-headline">Search Results for "{searchQuery}"</h1>
           {searchError && (
             <div className="mt-2 p-3 bg-destructive/10 border border-destructive/30 rounded-md">
@@ -213,7 +213,7 @@ export default function HomePage() {
         </div>
       )}
       
-      {!searchQuery && (
+      {!searchQuery && !isLoadingDisplay && (
         <div className="mb-10 text-center">
           <h1 className="text-4xl font-bold mb-3 font-headline">Welcome to Cloud Journal</h1>
           <p className="text-xl text-muted-foreground">
@@ -258,5 +258,7 @@ export default function HomePage() {
     </div>
   );
 }
+
+    
 
     
