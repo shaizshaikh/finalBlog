@@ -13,6 +13,13 @@ export interface Article {
   data_ai_hint?: string | null; // Nullable in DB
 }
 
+export interface PaginatedArticles {
+  articles: Article[];
+  totalCount: number;
+  currentPage: number;
+  totalPages: number;
+}
+
 export interface Comment {
   id: string;
   article_id: string;
