@@ -7,19 +7,29 @@ import Image from 'next/image';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import SocialShare from '@/components/SocialShare';
 import FeaturedCodeSnippet from '@/components/FeaturedCodeSnippet';
-import { CalendarDays, UserCircle, Tag, Edit3, ThumbsUp, Loader2 } from 'lucide-react';
+import { CalendarDays, UserCircle, Tag, Edit3, ThumbsUp, Loader2, MessageSquare } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { useEffect, useState } from 'react';
-import type { Article } from '@/types';
+import { useEffect, useState, useCallback } from 'react';
+import type { Article, Comment as CommentType } from '@/types';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import CommentList from '@/components/CommentList';
+import CommentForm from '@/components/CommentForm';
+import { fetchComments } from '@/app/actions/commentActions';
+
+const COMMENTS_PER_PAGE = 5;
 
 export default function ArticlePage() {
   const params = useParams();
-  const { getArticleBySlug, articles: contextArticles, isLoading: isContextLoading } = useArticles(); // Use async getArticleBySlug
-  const [article, setArticle] = useState<Article | null | undefined>(undefined); // undefined for loading, null for not found
+  const { getArticleBySlug, articles: contextArticles, isLoading: isContextLoading } = useArticles();
+  const [article, setArticle] = useState<Article | null | undefined>(undefined);
   const [pageLoading, setPageLoading] = useState(true);
 
+  const [articleComments, setArticleComments] = useState<CommentType[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(true);
+  const [commentsError, setCommentsError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalComments, setTotalComments] = useState(0);
 
   const slug = typeof params.slug === 'string' ? params.slug : '';
 
@@ -29,24 +39,61 @@ export default function ArticlePage() {
         setPageLoading(true);
         try {
           const foundArticle = await getArticleBySlug(slug);
-          setArticle(foundArticle); // Will be Article or undefined if not found
+          setArticle(foundArticle);
         } catch (error) {
           console.error("Failed to fetch article:", error);
-          setArticle(null); // Set to null on error
+          setArticle(null);
         } finally {
           setPageLoading(false);
         }
       };
       fetchArticle();
     } else {
-      setArticle(null); // No slug, not found
+      setArticle(null);
       setPageLoading(false);
     }
   }, [slug, getArticleBySlug]);
 
-  // Find the most up-to-date article data from context for likes, if available
   const displayArticle = contextArticles.find(a => a.slug === slug) || article;
 
+  const loadComments = useCallback(async (page: number, append = false) => {
+    if (!displayArticle?.id) return;
+
+    setCommentsLoading(true);
+    setCommentsError(null);
+    try {
+      const result = await fetchComments(displayArticle.id, COMMENTS_PER_PAGE, (page - 1) * COMMENTS_PER_PAGE);
+      if (append) {
+        setArticleComments(prevComments => [...prevComments, ...result.comments]);
+      } else {
+        setArticleComments(result.comments);
+      }
+      setTotalComments(result.totalCount);
+      setCurrentPage(page);
+    } catch (error) {
+      console.error("Failed to load comments:", error);
+      setCommentsError("Could not load comments. Please try again later.");
+    } finally {
+      setCommentsLoading(false);
+    }
+  }, [displayArticle?.id]);
+
+  useEffect(() => {
+    if (displayArticle?.id) {
+      loadComments(1); // Load initial page of comments
+    }
+  }, [displayArticle?.id, loadComments]);
+
+  const handleCommentAdded = () => {
+    // Refresh the first page of comments to show the new one at the top
+    if (displayArticle?.id) {
+      loadComments(1, false);
+    }
+  };
+
+  const handleLoadMoreComments = () => {
+    loadComments(currentPage + 1, true);
+  };
 
   if (pageLoading || (isContextLoading && displayArticle === undefined)) {
     return (
@@ -57,7 +104,7 @@ export default function ArticlePage() {
     );
   }
   
-  if (displayArticle === null || displayArticle === undefined) { // Not found state
+  if (displayArticle === null || displayArticle === undefined) {
     return (
       <div className="text-center py-20">
         <h1 className="text-4xl font-bold mb-4">Article Not Found</h1>
@@ -69,7 +116,7 @@ export default function ArticlePage() {
     );
   }
 
-  const formattedDate = new Date(displayArticle.createdAt).toLocaleDateString('en-US', {
+  const formattedDate = new Date(displayArticle.created_at).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -92,6 +139,10 @@ export default function ArticlePage() {
             <ThumbsUp className="w-5 h-5 mr-1.5" />
             <span>{displayArticle.likes} Likes</span>
           </div>
+          <div className="flex items-center">
+            <MessageSquare className="w-5 h-5 mr-1.5" />
+            <span>{totalComments} Comments</span>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2 mb-6">
           <Tag className="w-5 h-5 mr-1 text-muted-foreground self-center" />
@@ -101,16 +152,16 @@ export default function ArticlePage() {
             </Badge>
           ))}
         </div>
-        {displayArticle.imageUrl && (
+        {displayArticle.image_url && (
           <div className="relative w-full h-72 md:h-96 rounded-lg overflow-hidden shadow-lg mb-8">
             <Image
-              src={displayArticle.imageUrl}
+              src={displayArticle.image_url}
               alt={displayArticle.title}
               fill
               priority
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1000px"
               className="object-cover"
-              data-ai-hint={displayArticle.dataAiHint || "technology abstract"}
+              data-ai-hint={displayArticle.data_ai_hint || "technology abstract"}
             />
           </div>
         )}
@@ -123,6 +174,35 @@ export default function ArticlePage() {
       </div>
 
       <SocialShare article={displayArticle} />
+
+      <section className="mt-10 pt-6 border-t">
+        <h2 className="text-2xl font-semibold mb-6 font-headline">Comments ({totalComments})</h2>
+        <CommentForm articleId={displayArticle.id} onCommentAdded={handleCommentAdded} />
+        
+        {commentsLoading && articleComments.length === 0 && (
+          <div className="flex items-center justify-center my-6 p-4">
+            <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
+            <span className="text-muted-foreground">Loading comments...</span>
+          </div>
+        )}
+        {commentsError && (
+          <p className="text-destructive my-4 text-center">{commentsError}</p>
+        )}
+        
+        <CommentList comments={articleComments} />
+
+        {!commentsLoading && !commentsError && articleComments.length === 0 && (
+             <p className="text-muted-foreground text-center my-6">Be the first to comment!</p>
+        )}
+
+        {!commentsLoading && (currentPage * COMMENTS_PER_PAGE) < totalComments && (
+          <div className="text-center mt-6">
+            <Button onClick={handleLoadMoreComments} variant="outline">
+              Load More Comments
+            </Button>
+          </div>
+        )}
+      </section>
       
       <div className="mt-12 text-center">
           <Button asChild variant="outline">
@@ -134,11 +214,3 @@ export default function ArticlePage() {
     </article>
   );
 }
-
-// Add generateStaticParams for better SSG if articles are static
-// export async function generateStaticParams() {
-//   // const articles = await fetchArticlesFromDb(); // Fetch all article slugs from DB
-//   // return articles.map((article) => ({
-//   //   slug: article.slug,
-//   // }));
-// }

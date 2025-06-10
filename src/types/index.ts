@@ -12,3 +12,17 @@ export interface Article {
   excerpt?: string | null; // Nullable in DB
   data_ai_hint?: string | null; // Nullable in DB
 }
+
+export interface Comment {
+  id: string;
+  article_id: string;
+  author_name: string;
+  content: string;
+  created_at: string; // ISO date string
+  is_approved: boolean;
+}
+
+export interface PaginatedComments {
+  comments: Comment[];
+  totalCount: number;
+}
