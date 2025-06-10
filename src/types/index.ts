@@ -20,6 +20,7 @@ export interface Comment {
   content: string;
   created_at: string; // ISO date string
   is_approved: boolean;
+  likes: number; // Added for comment likes
 }
 
 export interface PaginatedComments {

@@ -99,6 +99,17 @@ export default function ArticlePage() {
   const handleCancelComment = () => {
     setIsCommentFormVisible(false);
   };
+  
+  const handleCommentLiked = (updatedComment: CommentType) => {
+    // This function is called when a comment is liked in CommentList.
+    // We update the articleComments state to reflect the change immediately.
+    setArticleComments(prevComments =>
+      prevComments.map(c => (c.id === updatedComment.id ? updatedComment : c))
+    );
+    // Note: The totalComments state might not need updating for just a like.
+    // If you wanted to refresh total comments from DB, you could call loadComments(1, false) here too.
+  };
+
 
   if (pageLoading || (isContextLoading && displayArticle === undefined)) {
     return (
@@ -209,7 +220,7 @@ export default function ArticlePage() {
           <p className="text-destructive my-4 text-center">{commentsError}</p>
         )}
         
-        <CommentList comments={articleComments} />
+        <CommentList initialComments={articleComments} onCommentLiked={handleCommentLiked} />
 
         {!commentsLoading && !commentsError && articleComments.length === 0 && (
              <p className="text-muted-foreground text-center my-6">Be the first to comment!</p>
@@ -234,4 +245,3 @@ export default function ArticlePage() {
     </article>
   );
 }
-

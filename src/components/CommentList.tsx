@@ -1,26 +1,58 @@
 
+"use client";
+
 import type { Comment } from '@/types';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { UserCircle } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { ThumbsUp, UserCircle } from 'lucide-react';
+import { likeComment as likeCommentAction } from '@/app/actions/commentActions';
+import { useToast } from '@/hooks/use-toast';
+import React, { useState, useEffect } from 'react';
 
 interface CommentListProps {
-  comments: Comment[];
+  initialComments: Comment[]; // Changed from `comments` to `initialComments`
+  onCommentLiked?: (updatedComment: Comment) => void; // Optional callback
 }
 
-export default function CommentList({ comments }: CommentListProps) {
+export default function CommentList({ initialComments, onCommentLiked }: CommentListProps) {
+  const [comments, setComments] = useState<Comment[]>(initialComments);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    setComments(initialComments);
+  }, [initialComments]);
+
   if (!comments || comments.length === 0) {
-    // This state will be handled by the parent component (ArticlePage)
-    // to show "Be the first to comment" or loading states.
     return null;
   }
+
+  const handleLikeComment = async (commentId: string) => {
+    const result = await likeCommentAction(commentId);
+    if (result.success && result.updatedComment) {
+      setComments(prevComments =>
+        prevComments.map(c => (c.id === commentId ? result.updatedComment! : c))
+      );
+      if (onCommentLiked) {
+        onCommentLiked(result.updatedComment);
+      }
+      toast({
+        title: "Comment Liked!",
+        description: "Thanks for the feedback.",
+      });
+    } else {
+      toast({
+        title: "Error",
+        description: result.message || "Could not like comment.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="space-y-6 mt-8">
       {comments.map((comment) => (
         <div key={comment.id} className="flex space-x-4 p-4 bg-card rounded-lg shadow">
           <Avatar>
-            {/* Placeholder for user image - could be dynamic in future */}
-            {/* <AvatarImage src={`https://i.pravatar.cc/40?u=${comment.author_name}`} alt={comment.author_name} /> */}
             <AvatarFallback>
               <UserCircle className="h-6 w-6 text-muted-foreground" />
             </AvatarFallback>
@@ -35,6 +67,17 @@ export default function CommentList({ comments }: CommentListProps) {
               </p>
             </div>
             <p className="mt-1 text-sm text-foreground/90 whitespace-pre-line">{comment.content}</p>
+            <div className="mt-2 flex items-center space-x-2">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => handleLikeComment(comment.id)}
+                className="text-muted-foreground hover:text-primary p-1 h-auto"
+              >
+                <ThumbsUp className="w-4 h-4 mr-1.5" />
+                ({comment.likes})
+              </Button>
+            </div>
           </div>
         </div>
       ))}
