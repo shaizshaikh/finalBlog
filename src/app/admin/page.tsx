@@ -23,11 +23,18 @@ import { Badge } from '@/components/ui/badge';
 import React from 'react';
 
 export default function AdminDashboardPage() {
-  const { articles, deleteArticle, isLoading } = useArticles();
+  const { 
+    articles, 
+    deleteArticle, 
+    isLoading: isContextLoading, // Overall context loading (initial load)
+    isLoadingMore, // Context loading more items
+    fetchPage,
+    currentPage,
+    totalPages,
+    totalArticles
+  } = useArticles();
   const { toast } = useToast();
 
-  // The ArticleProvider handles initial loading.
-  // Removed useEffect that was causing potential infinite refresh loop here.
 
   const handleDelete = async (id: string, title: string) => {
     try {
@@ -38,7 +45,8 @@ export default function AdminDashboardPage() {
     }
   };
   
-  if (isLoading && articles.length === 0) { // Show loading only if context is loading and we have no articles yet
+  // Show main loader if context is loading and there are no articles yet (initial state)
+  if (isContextLoading && articles.length === 0) { 
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-300px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -51,7 +59,7 @@ export default function AdminDashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold font-headline">Manage Articles</h2>
+        <h2 className="text-3xl font-bold font-headline">Manage Articles ({totalArticles})</h2>
         <Button asChild>
           <Link href="/admin/create">
             <PlusCircle className="mr-2 h-5 w-5" /> Create New Article
@@ -59,7 +67,8 @@ export default function AdminDashboardPage() {
         </Button>
       </div>
 
-      {!isLoading && articles.length === 0 ? ( 
+      {/* Show "no articles" message if not loading and no articles exist */}
+      {!isContextLoading && articles.length === 0 ? ( 
         <p className="text-muted-foreground text-center py-10">No articles yet. Start by creating one!</p>
       ) : (
         <div className="border rounded-lg shadow-sm">
@@ -84,13 +93,6 @@ export default function AdminDashboardPage() {
                   </TableCell>
                   <TableCell>{new Date(article.created_at).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right space-x-2">
-                    {/* Removed View Article Button
-                    <Button variant="ghost" size="icon" asChild title="View Article">
-                      <Link href={`/articles/${article.slug}`} target="_blank">
-                        <ExternalLink className="h-4 w-4 text-muted-foreground" />
-                      </Link>
-                    </Button>
-                    */}
                     <Button variant="ghost" size="icon" asChild title="Edit Article">
                       <Link href={`/admin/edit/${article.slug}`}>
                         <Edit className="h-4 w-4 text-blue-500" />
@@ -127,6 +129,23 @@ export default function AdminDashboardPage() {
           </Table>
         </div>
       )}
+
+      {/* Load More Button */}
+      {!isContextLoading && articles.length > 0 && currentPage < totalPages && (
+        <div className="text-center mt-8">
+          <Button 
+            onClick={() => fetchPage(currentPage + 1)} 
+            disabled={isLoadingMore}
+            variant="outline"
+          >
+            {isLoadingMore ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : null}
+            {isLoadingMore ? 'Loading...' : 'Load More Articles'}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
+

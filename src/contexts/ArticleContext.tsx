@@ -17,14 +17,14 @@ import { ARTICLES_PER_PAGE_ADMIN } from '@/config/constants'; // Using admin for
 type ArticleContextCreationData = Omit<Article, 'id' | 'created_at' | 'likes'>;
 
 interface ArticleContextType {
-  articles: Article[]; // Current page of articles
-  allArticlesForSearch: Article[]; // All articles, for client-side search if needed
-  totalArticles: number;
-  currentPage: number;
-  totalPages: number;
-  isLoading: boolean;
-  isLoadingMore: boolean; // For loading subsequent pages specifically
-  fetchPage: (page: number, itemsPerPage?: number) => Promise<void>;
+  articles: Article[]; // Current page of articles (primarily for admin)
+  allArticlesForSearch: Article[]; // All articles, for client-side search
+  totalArticles: number; // Total articles for the current context pagination
+  currentPage: number; // Current page for the context pagination
+  totalPages: number; // Total pages for the context pagination
+  isLoading: boolean; // General loading for initial context load
+  isLoadingMore: boolean; // For loading subsequent pages specifically in context
+  fetchPage: (page: number, itemsPerPage?: number) => Promise<void>; // For context pagination
   getArticleBySlug: (slug: string) => Promise<Article | undefined>;
   addArticle: (articleData: ArticleContextCreationData) => Promise<Article>;
   updateArticle: (article: Article) => Promise<Article | undefined>;
@@ -41,132 +41,137 @@ export const ArticleProvider = ({ children }: { children: ReactNode }) => {
   const [totalArticles, setTotalArticles] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true); // For initial load of context (first page + all articles)
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false); // For "load more" in admin
 
   const fetchPage = useCallback(async (page: number, itemsPerPage: number = ARTICLES_PER_PAGE_ADMIN) => {
-    if (page === 1) setIsLoading(true);
+    if (page === 1) setIsLoading(true); // This isLoading might be redundant if initialLoad sets it
     else setIsLoadingMore(true);
     
     try {
       const offset = (page - 1) * itemsPerPage;
       const paginatedResult = await fetchArticlesFromDb(itemsPerPage, offset);
+      
       if (page === 1) {
         setArticles(paginatedResult.articles);
       } else {
-        // For "Load More" style, append. If it's direct page navigation, replace.
-        // For simplicity, let's assume direct page navigation replaces for now.
-        // Or, if we implement "Load More" in the context, this should append.
-        // Given current UI will use "Load More", we should append if page > 1 for that use case.
-        // However, the admin page might want direct page navigation.
-        // Let's make `fetchPage` always set, and `loadMore` (if added) append.
-        setArticles(paginatedResult.articles);
+        // Append for "Load More" functionality
+        setArticles(prevArticles => [...prevArticles, ...paginatedResult.articles]);
       }
       setTotalArticles(paginatedResult.totalCount);
-      setCurrentPage(paginatedResult.currentPage);
+      setCurrentPage(paginatedResult.currentPage); // This is an API provided current page
       setTotalPages(paginatedResult.totalPages);
     } catch (error) {
-      console.error(`Failed to fetch page ${page} of articles:`, error);
-      setArticles([]);
-      setTotalArticles(0);
-      setCurrentPage(1);
-      setTotalPages(0);
+      console.error(`Failed to fetch page ${page} of articles for context:`, error);
+      // Don't reset articles if it's a subsequent load error, to keep existing data
+      if (page === 1) {
+        setArticles([]);
+        setTotalArticles(0);
+        setCurrentPage(1);
+        setTotalPages(0);
+      }
     } finally {
-      setIsLoading(false);
-      setIsLoadingMore(false);
+      if (page === 1) setIsLoading(false); // Handled by initialLoad usually
+      else setIsLoadingMore(false);
     }
   }, []);
 
   const fetchAllArticles = useCallback(async () => {
-    setIsLoading(true); // Can use a general loading or a specific one if needed
+    // This specific loading state might not be needed if combined with general isLoading
+    // For now, let's assume initialLoad's isLoading covers this.
     try {
       const allFetchedArticles = await fetchAllArticlesFromDb();
       setAllArticlesForSearch(allFetchedArticles);
     } catch (error) {
       console.error("Failed to fetch all articles for search:", error);
       setAllArticlesForSearch([]);
-    } finally {
-      setIsLoading(false); // Ensure this is reset after fetching all or first page
     }
   }, []);
   
   useEffect(() => {
     const initialLoad = async () => {
-      await fetchPage(1, ARTICLES_PER_PAGE_ADMIN); // Load first page for general context use
-      await fetchAllArticles(); // Also fetch all articles for search capabilities
+      setIsLoading(true);
+      try {
+        await Promise.all([
+          fetchPage(1, ARTICLES_PER_PAGE_ADMIN), // Load first page for admin context
+          fetchAllArticles() // Fetch all articles for search capabilities
+        ]);
+      } catch(error) {
+        console.error("Error during initial load of ArticleContext:", error);
+        // Handle error state if needed, e.g. set an error flag
+      } finally {
+        setIsLoading(false);
+      }
     };
     initialLoad();
-  }, [fetchPage, fetchAllArticles]);
+  // fetchPage and fetchAllArticles are memoized with useCallback
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
 
   const getArticleBySlug = useCallback(async (slug: string): Promise<Article | undefined> => {
-    setIsLoading(true);
+    // setIsLoading(true); // Avoid global loading for this, can be too disruptive
     try {
-      // Try finding in the 'allArticlesForSearch' first if populated
       const foundInAll = allArticlesForSearch.find(a => a.slug === slug);
       if (foundInAll) return foundInAll;
-      // Fallback to DB if not found or 'allArticlesForSearch' isn't comprehensive enough yet
       return await getArticleBySlugFromDb(slug);
     } catch (error) {
       console.error(`Failed to get article by slug ${slug}:`, error);
       return undefined;
     } finally {
-      setIsLoading(false);
+      // setIsLoading(false);
     }
   }, [allArticlesForSearch]);
 
   const addArticle = useCallback(async (articleData: ArticleContextCreationData): Promise<Article> => {
-    setIsLoading(true);
+    // Consider a specific loading state for this action if it's disruptive
     try {
       const newArticle = await addArticleToDb(articleData);
-      await fetchPage(1, ARTICLES_PER_PAGE_ADMIN); // Refresh to page 1
+      await fetchPage(1, ARTICLES_PER_PAGE_ADMIN); // Refresh admin to page 1
       await fetchAllArticles(); // Refresh all articles list
       return newArticle;
     } catch (error) {
       console.error("Failed to add article:", error);
-      await fetchPage(currentPage, ARTICLES_PER_PAGE_ADMIN); // Refresh current page on error
+      // Potentially refresh current page on error if that's desired
+      // await fetchPage(currentPage, ARTICLES_PER_PAGE_ADMIN); 
       throw error;
-    } finally {
-      // setIsLoading(false); // fetchPage will handle it
     }
-  }, [fetchPage, fetchAllArticles, currentPage]);
+  }, [fetchPage, fetchAllArticles]);
 
   const updateArticle = useCallback(async (article: Article): Promise<Article | undefined> => {
-    setIsLoading(true);
     try {
       const updated = await updateArticleInDb(article);
-      await fetchPage(currentPage, ARTICLES_PER_PAGE_ADMIN); // Refresh current page
+      await fetchPage(currentPage, ARTICLES_PER_PAGE_ADMIN); // Refresh admin current page
       await fetchAllArticles(); // Refresh all articles list
       return updated;
     } catch (error) {
       console.error("Failed to update article:", error);
-      await fetchPage(currentPage, ARTICLES_PER_PAGE_ADMIN); 
+      // await fetchPage(currentPage, ARTICLES_PER_PAGE_ADMIN); 
       throw error;
     }
   }, [fetchPage, fetchAllArticles, currentPage]);
 
   const deleteArticle = useCallback(async (id: string): Promise<void> => {
-    setIsLoading(true);
     try {
       await deleteArticleFromDb(id);
-      // After deletion, if current page becomes empty and it's not page 1, fetch previous page.
-      // Or simply fetch page 1. For simplicity, let's fetch page 1.
       await fetchPage(1, ARTICLES_PER_PAGE_ADMIN); 
       await fetchAllArticles();
     } catch (error) {
       console.error("Failed to delete article:", error);
-      await fetchPage(currentPage, ARTICLES_PER_PAGE_ADMIN);
+      // await fetchPage(currentPage, ARTICLES_PER_PAGE_ADMIN);
       throw error;
     }
-  }, [fetchPage, fetchAllArticles, currentPage]);
+  }, [fetchPage, fetchAllArticles]);
   
   const likeArticle = useCallback(async (id: string): Promise<void> => {
     try {
       const likedArticle = await likeArticleById(id);
       if (likedArticle) {
+        // Update admin articles list if the liked article is present
         setArticles(prevArticles => 
           prevArticles.map(a => a.id === id ? likedArticle : a)
         );
+        // Always update allArticlesForSearch as it's the comprehensive list
         setAllArticlesForSearch(prevAllArticles => 
           prevAllArticles.map(a => a.id === id ? likedArticle : a)
         );
@@ -206,3 +211,4 @@ export const useArticles = () => {
   }
   return context;
 };
+
