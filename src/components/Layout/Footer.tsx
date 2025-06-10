@@ -11,9 +11,12 @@ export default function Footer() {
         <p className="text-xs text-muted-foreground mt-1">
           Inspired by modern tech blogs. Built with Next.js and Tailwind CSS.
         </p>
+        {/* The unsubscribe link below is now removed as per user request */}
+        {/*
         <p className="text-xs text-muted-foreground mt-2">
           <Link href="/unsubscribe" className="hover:underline">Unsubscribe from newsletter</Link>
         </p>
+        */}
       </div>
     </footer>
   );
