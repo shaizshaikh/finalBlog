@@ -33,8 +33,9 @@ export const getArticles = async (limit: number, offset: number): Promise<Pagina
 export const getAllArticlesForSearch = async (): Promise<Article[]> => {
   console.log('articlesStore: Fetching ALL articles from DB for search purposes');
   try {
-    const result = await pool.query<Article>('SELECT id, title, content, excerpt, tags FROM articles ORDER BY created_at DESC');
-    console.log(`articlesStore: Fetched ${result.rowCount} articles for search.`);
+    // Ensure ALL fields for the Article type are selected, especially 'slug'
+    const result = await pool.query<Article>('SELECT * FROM articles ORDER BY created_at DESC');
+    console.log(`articlesStore: Fetched ${result.rowCount} articles for search. First article slug: ${result.rows[0]?.slug}`);
     return result.rows;
   } catch (error) {
     console.error('articlesStore: Error fetching all articles for search from DB:', error);
@@ -159,3 +160,4 @@ export const likeArticleById = async (id: string): Promise<Article | undefined> 
     throw error;
   }
 };
+

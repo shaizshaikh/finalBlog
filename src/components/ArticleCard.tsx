@@ -17,11 +17,18 @@ export default function ArticleCard({ article }: ArticleCardProps) {
     day: 'numeric',
   });
 
+  // Fallback for missing slug to prevent crashes, though the root cause should be fixed.
+  const articleLink = article.slug ? `/articles/${article.slug}` : '#article-slug-missing';
+  if (!article.slug) {
+    console.warn(`ArticleCard: Article with ID ${article.id} and title "${article.title}" is missing a slug.`);
+  }
+
+
   return (
-    <Card className={`overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg flex ${article.image_url ? 'flex-col md:flex-row' : 'flex-col'}`}>
+    <Card className={`overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg flex w-full ${article.image_url ? 'flex-col md:flex-row' : 'flex-col'}`}>
       {article.image_url && (
-        <div className="md:w-1/3 lg:w-1/4 xl:w-1/5 md:flex-shrink-0">
-          <Link href={`/articles/${article.slug}`} className="block h-48 md:h-full relative">
+        <div className="md:w-1/3 lg:w-1/4 xl:w-1/5 md:flex-shrink-0 h-48 md:h-auto"> {/* md:h-auto allows height to match content on larger screens */}
+          <Link href={articleLink} className="block h-full relative"> {/* Ensure Link takes full height of this div */}
             <Image
               src={article.image_url}
               alt={article.title}
@@ -29,6 +36,7 @@ export default function ArticleCard({ article }: ArticleCardProps) {
               sizes="(max-width: 767px) 100vw, (max-width: 1023px) 33vw, (max-width: 1279px) 25vw, 20vw"
               className="object-cover rounded-t-lg md:rounded-l-lg md:rounded-t-none"
               data-ai-hint={article.data_ai_hint || "technology abstract"}
+              priority // Consider adding priority for above-the-fold images if applicable
             />
           </Link>
         </div>
@@ -36,7 +44,7 @@ export default function ArticleCard({ article }: ArticleCardProps) {
 
       <div className={`flex flex-col flex-grow ${article.image_url ? 'md:w-2/3 lg:w-3/4 xl:w-4/5' : 'w-full'}`}>
         <CardHeader className="pt-4 md:pt-6 pb-2">
-          <Link href={`/articles/${article.slug}`} className="hover:text-primary transition-colors">
+          <Link href={articleLink} className="hover:text-primary transition-colors">
             <CardTitle className="text-xl font-headline mb-1 leading-tight">{article.title}</CardTitle>
           </Link>
           <div className="text-xs text-muted-foreground flex items-center flex-wrap gap-x-3 gap-y-1">
@@ -75,3 +83,4 @@ export default function ArticleCard({ article }: ArticleCardProps) {
     </Card>
   );
 }
+
