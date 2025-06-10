@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Article } from '@/types';
@@ -16,6 +17,7 @@ import { generateTags as generateTagsAI } from '@/ai/flows/generate-tags';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Loader2, Wand2, TagsIcon } from 'lucide-react';
 import MarkdownRenderer from '../MarkdownRenderer'; // For HTML preview
+import { sendNewArticleNotification } from '@/app/actions/newsletterActions';
 
 const articleSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
@@ -52,7 +54,7 @@ export default function AdminArticleForm({ article }: AdminArticleFormProps) {
       author: article?.author || 'Cloud Journal Admin',
       imageUrl: article?.imageUrl || '',
       excerpt: article?.excerpt || '',
-      dataAiHint: (article as any)?.dataAiHint || '',
+      dataAiHint: article?.dataAiHint || '',
     },
   });
 
@@ -104,23 +106,33 @@ export default function AdminArticleForm({ article }: AdminArticleFormProps) {
 
   const onSubmit = async (data: ArticleFormData) => {
     setIsSubmitting(true);
-    const articleData = {
+    const articleDataForStore = {
       ...data,
       tags: data.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
     };
 
     try {
-      if (article) {
-        await updateArticle({ ...article, ...articleData });
+      if (article) { // Editing existing article
+        await updateArticle({ ...article, ...articleDataForStore });
         toast({ title: 'Article Updated', description: `"${data.title}" has been updated.` });
-      } else {
-        await addArticle(articleData);
-        toast({ title: 'Article Created', description: `"${data.title}" has been published.` });
+      } else { // Creating new article
+        const newArticle = await addArticle(articleDataForStore);
+        toast({ title: 'Article Created', description: `"${newArticle.title}" has been published.` });
+        
+        // Send newsletter notification for the new article
+        // Ensure newArticle has all necessary fields like slug, excerpt for the email.
+        // The addArticle function should return the complete article object.
+        if (newArticle) {
+            console.log('Attempting to send new article notification for:', newArticle.title);
+            await sendNewArticleNotification(newArticle);
+            toast({ title: 'Newsletter Sent', description: `Notification for "${newArticle.title}" sent to subscribers.` });
+        }
       }
       router.push('/admin');
     } catch (error) {
       console.error('Failed to save article:', error);
       toast({ title: 'Error', description: 'Could not save article.', variant: 'destructive' });
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -205,3 +217,5 @@ export default function AdminArticleForm({ article }: AdminArticleFormProps) {
     </form>
   );
 }
+
+    
