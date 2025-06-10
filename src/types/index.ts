@@ -1,12 +1,14 @@
+
 export interface Article {
-  id: string;
+  id: string; // UUID from database
   title: string;
   content: string; // Markdown content
-  slug: string;
-  tags: string[];
-  createdAt: string; // ISO date string
+  slug: string; // Should be unique
+  tags: string[]; // Stored as TEXT[] in PostgreSQL
+  created_at: string; // ISO date string (TIMESTAMPTZ from DB)
   author: string;
-  imageUrl?: string; // Placeholder image URL
+  image_url?: string | null; // Nullable in DB
   likes: number;
-  excerpt?: string; // Short summary for cards
+  excerpt?: string | null; // Nullable in DB
+  data_ai_hint?: string | null; // Nullable in DB
 }

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useParams } from 'next/navigation';
@@ -6,7 +7,7 @@ import Image from 'next/image';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import SocialShare from '@/components/SocialShare';
 import FeaturedCodeSnippet from '@/components/FeaturedCodeSnippet';
-import { CalendarDays, UserCircle, Tag, Edit3, ThumbsUp } from 'lucide-react';
+import { CalendarDays, UserCircle, Tag, Edit3, ThumbsUp, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useEffect, useState } from 'react';
 import type { Article } from '@/types';
@@ -15,24 +16,48 @@ import { Button } from '@/components/ui/button';
 
 export default function ArticlePage() {
   const params = useParams();
-  const { getArticleBySlug, articles: contextArticles } = useArticles();
-  const [article, setArticle] = useState<Article | null | undefined>(null); // undefined for loading, null for not found
+  const { getArticleBySlug, articles: contextArticles, isLoading: isContextLoading } = useArticles(); // Use async getArticleBySlug
+  const [article, setArticle] = useState<Article | null | undefined>(undefined); // undefined for loading, null for not found
+  const [pageLoading, setPageLoading] = useState(true);
+
 
   const slug = typeof params.slug === 'string' ? params.slug : '';
 
   useEffect(() => {
     if (slug) {
-      const foundArticle = getArticleBySlug(slug);
-      setArticle(foundArticle);
+      const fetchArticle = async () => {
+        setPageLoading(true);
+        try {
+          const foundArticle = await getArticleBySlug(slug);
+          setArticle(foundArticle); // Will be Article or undefined if not found
+        } catch (error) {
+          console.error("Failed to fetch article:", error);
+          setArticle(null); // Set to null on error
+        } finally {
+          setPageLoading(false);
+        }
+      };
+      fetchArticle();
+    } else {
+      setArticle(null); // No slug, not found
+      setPageLoading(false);
     }
-  }, [slug, getArticleBySlug, contextArticles]); // Rerun if contextArticles changes (e.g. after a like)
+  }, [slug, getArticleBySlug]);
+
+  // Find the most up-to-date article data from context for likes, if available
+  const displayArticle = contextArticles.find(a => a.slug === slug) || article;
 
 
-  if (article === undefined) { // Loading state
-    return <div className="flex justify-center items-center min-h-[calc(100vh-200px)]"><p className="text-xl">Loading article...</p></div>;
+  if (pageLoading || (isContextLoading && displayArticle === undefined)) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-lg text-muted-foreground">Loading article...</p>
+      </div>
+    );
   }
-
-  if (article === null) { // Not found state
+  
+  if (displayArticle === null || displayArticle === undefined) { // Not found state
     return (
       <div className="text-center py-20">
         <h1 className="text-4xl font-bold mb-4">Article Not Found</h1>
@@ -44,7 +69,7 @@ export default function ArticlePage() {
     );
   }
 
-  const formattedDate = new Date(article.createdAt).toLocaleDateString('en-US', {
+  const formattedDate = new Date(displayArticle.createdAt).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -53,11 +78,11 @@ export default function ArticlePage() {
   return (
     <article className="max-w-4xl mx-auto py-8">
       <header className="mb-8">
-        <h1 className="text-4xl md:text-5xl font-bold mb-4 font-headline">{article.title}</h1>
+        <h1 className="text-4xl md:text-5xl font-bold mb-4 font-headline">{displayArticle.title}</h1>
         <div className="flex flex-wrap items-center text-sm text-muted-foreground space-x-4 mb-4">
           <div className="flex items-center">
             <UserCircle className="w-5 h-5 mr-1.5" />
-            <span>{article.author || 'Cloud Journal Team'}</span>
+            <span>{displayArticle.author || 'Cloud Journal Team'}</span>
           </div>
           <div className="flex items-center">
             <CalendarDays className="w-5 h-5 mr-1.5" />
@@ -65,43 +90,43 @@ export default function ArticlePage() {
           </div>
           <div className="flex items-center">
             <ThumbsUp className="w-5 h-5 mr-1.5" />
-            <span>{article.likes} Likes</span>
+            <span>{displayArticle.likes} Likes</span>
           </div>
         </div>
         <div className="flex flex-wrap gap-2 mb-6">
           <Tag className="w-5 h-5 mr-1 text-muted-foreground self-center" />
-          {article.tags.map((tag) => (
+          {displayArticle.tags.map((tag) => (
             <Badge key={tag} variant="secondary" className="text-sm">
               {tag}
             </Badge>
           ))}
         </div>
-        {article.imageUrl && (
+        {displayArticle.imageUrl && (
           <div className="relative w-full h-72 md:h-96 rounded-lg overflow-hidden shadow-lg mb-8">
             <Image
-              src={article.imageUrl}
-              alt={article.title}
+              src={displayArticle.imageUrl}
+              alt={displayArticle.title}
               fill
               priority
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1000px"
               className="object-cover"
-              data-ai-hint={article.dataAiHint || "technology abstract"}
+              data-ai-hint={displayArticle.dataAiHint || "technology abstract"}
             />
           </div>
         )}
       </header>
 
-      <FeaturedCodeSnippet articleContent={article.content} />
+      <FeaturedCodeSnippet articleContent={displayArticle.content} />
       
       <div className="prose-base">
-        <MarkdownRenderer content={article.content} />
+        <MarkdownRenderer content={displayArticle.content} />
       </div>
 
-      <SocialShare article={article} />
+      <SocialShare article={displayArticle} />
       
       <div className="mt-12 text-center">
           <Button asChild variant="outline">
-            <Link href={`/admin/edit/${article.slug}`}>
+            <Link href={`/admin/edit/${displayArticle.slug}`}>
                 <Edit3 className="mr-2 h-4 w-4"/> Edit this Article (Admin)
             </Link>
           </Button>
@@ -112,9 +137,8 @@ export default function ArticlePage() {
 
 // Add generateStaticParams for better SSG if articles are static
 // export async function generateStaticParams() {
-//   const articles = getAllArticlesFromSomeSource(); // Fetch all article slugs
-//   return articles.map((article) => ({
-//     slug: article.slug,
-//   }));
+//   // const articles = await fetchArticlesFromDb(); // Fetch all article slugs from DB
+//   // return articles.map((article) => ({
+//   //   slug: article.slug,
+//   // }));
 // }
-

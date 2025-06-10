@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { Article } from '@/types';
@@ -5,7 +6,7 @@ import { useArticles } from '@/contexts/ArticleContext';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PlusCircle, Edit, Trash2, ExternalLink } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, ExternalLink, Loader2 } from 'lucide-react'; // Added Loader2
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -19,29 +20,38 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';
+import React, { useEffect } from 'react'; // Added React
 
 export default function AdminDashboardPage() {
-  const { articles, deleteArticle, refreshArticles } = useArticles();
+  const { articles, deleteArticle, refreshArticles, isLoading } = useArticles(); // Added isLoading
   const { toast } = useToast();
 
-  // Ensure articles are loaded (context handles this with useEffect)
-  // but for direct navigation, a manual refreshArticles call could be useful if data can get stale.
-  // For now, context's useEffect should suffice.
+  // Refresh articles when the component mounts or if articles array is empty and not loading
+  useEffect(() => {
+    if (articles.length === 0 && !isLoading) {
+      refreshArticles();
+    }
+  }, [articles.length, isLoading, refreshArticles]);
+
 
   const handleDelete = async (id: string, title: string) => {
     try {
       await deleteArticle(id);
       toast({ title: 'Article Deleted', description: `"${title}" has been deleted.` });
+      // refreshArticles(); // context should handle this now after delete
     } catch (error) {
       toast({ title: 'Error', description: 'Could not delete article.', variant: 'destructive' });
     }
   };
   
-  // Call refreshArticles when the component mounts, in case the initial load in context wasn't sufficient
-  // or if we want to ensure latest data on admin page visit.
-  // React.useEffect(() => {
-  //  refreshArticles();
-  //}, [refreshArticles]);
+  if (isLoading && articles.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-300px)]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <p className="mt-4 text-lg text-muted-foreground">Loading articles...</p>
+      </div>
+    );
+  }
 
 
   return (
@@ -55,7 +65,7 @@ export default function AdminDashboardPage() {
         </Button>
       </div>
 
-      {articles.length === 0 ? (
+      {articles.length === 0 && !isLoading ? ( // check !isLoading here
         <p className="text-muted-foreground text-center py-10">No articles yet. Start by creating one!</p>
       ) : (
         <div className="border rounded-lg shadow-sm">
