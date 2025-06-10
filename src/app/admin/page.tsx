@@ -6,7 +6,7 @@ import { useArticles } from '@/contexts/ArticleContext';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PlusCircle, Edit, Trash2, ExternalLink, Loader2 } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -84,11 +84,13 @@ export default function AdminDashboardPage() {
                   </TableCell>
                   <TableCell>{new Date(article.created_at).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right space-x-2">
+                    {/* Removed View Article Button
                     <Button variant="ghost" size="icon" asChild title="View Article">
                       <Link href={`/articles/${article.slug}`} target="_blank">
                         <ExternalLink className="h-4 w-4 text-muted-foreground" />
                       </Link>
                     </Button>
+                    */}
                     <Button variant="ghost" size="icon" asChild title="Edit Article">
                       <Link href={`/admin/edit/${article.slug}`}>
                         <Edit className="h-4 w-4 text-blue-500" />
