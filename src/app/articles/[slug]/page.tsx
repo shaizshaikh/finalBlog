@@ -21,14 +21,24 @@ const COMMENTS_PER_PAGE = 5;
 
 export default function ArticlePage() {
   const params = useParams();
-  const { getArticleBySlug, articles: contextArticles, isLoading: isContextLoading } = useArticles();
+  const { getArticleBySlug, isLoading: isContextLoading } = useArticles();
+  
+  // article state:
+  // undefined: actively trying to load the article.
+  // Article object: article successfully loaded.
+  // null: article explicitly determined to be not found, or an error occurred during fetch.
   const [article, setArticle] = useState<Article | null | undefined>(undefined);
-  const [pageLoading, setPageLoading] = useState(true);
+  
+  // Page-level loading state, distinct from the article data state.
+  // This could be true if, for instance, comments are loading even if the article is found.
+  // For the main article fetch, it mirrors the period when `article` is `undefined`.
+  const [isPageLoading, setIsPageLoading] = useState(true);
+
 
   const [articleComments, setArticleComments] = useState<CommentType[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [commentsError, setCommentsError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [commentsCurrentPage, setCommentsCurrentPage] = useState(1);
   const [totalComments, setTotalComments] = useState(0);
   const [isCommentFormVisible, setIsCommentFormVisible] = useState(false);
 
@@ -36,64 +46,93 @@ export default function ArticlePage() {
 
   useEffect(() => {
     if (slug) {
-      const fetchArticle = async () => {
-        setPageLoading(true);
+      const fetchArticleData = async () => {
+        console.log(`ArticlePage: Initiating fetch for slug: "${slug}". isContextLoading: ${isContextLoading}`);
+        setArticle(undefined); // Reset to loading state for the article object itself
+        setIsPageLoading(true); // General page loading indicator
+
         try {
+          // getArticleBySlug will use allArticlesForSearch if context is loaded, otherwise fallback to DB
           const foundArticle = await getArticleBySlug(slug);
-          setArticle(foundArticle);
+          if (foundArticle) {
+            console.log(`ArticlePage: SUCCESS - Article found for slug "${slug}": ${foundArticle.title}`);
+            setArticle(foundArticle);
+          } else {
+            console.log(`ArticlePage: FAILED - Article NOT found for slug "${slug}" after getArticleBySlug.`);
+            setArticle(null); // Explicitly set to null (not found)
+          }
         } catch (error) {
-          console.error("Failed to fetch article:", error);
-          setArticle(null);
+          console.error(`ArticlePage: CRITICAL ERROR fetching article data for slug "${slug}":`, error);
+          setArticle(null); // Error occurred
         } finally {
-          setPageLoading(false);
+          setIsPageLoading(false); // Finished attempting to load the article data
+          console.log(`ArticlePage: Fetch attempt finished for slug "${slug}". Article state:`, article === undefined ? "loading" : (article === null ? "not found/error" : "found"));
         }
       };
-      fetchArticle();
+      
+      fetchArticleData();
     } else {
-      setArticle(null);
-      setPageLoading(false);
+      console.log("ArticlePage: No slug provided, setting article to null.");
+      setArticle(null); // No slug, so definitely not found
+      setIsPageLoading(false);
     }
-  }, [slug, getArticleBySlug]);
+  // getArticleBySlug reference changes when its deps (allArticlesForSearch, isContextLoading) change.
+  // isContextLoading ensures this effect re-runs if context was busy during the first attempt.
+  }, [slug, getArticleBySlug, isContextLoading]);
 
-  const displayArticle = contextArticles.find(a => a.slug === slug) || article;
 
   const loadComments = useCallback(async (page: number, append = false) => {
-    if (!displayArticle?.id) return;
+    // Only load comments if we have a valid article ID
+    if (!article?.id) {
+        console.log("ArticlePage: loadComments - Aborted, article or article.id is not available.");
+        setCommentsLoading(false); // Ensure loading state is false if we can't proceed
+        return;
+    }
 
+    console.log(`ArticlePage: loadComments for article ID ${article.id}, page ${page}`);
     setCommentsLoading(true);
     setCommentsError(null);
     try {
-      const result: PaginatedComments = await fetchComments(displayArticle.id, COMMENTS_PER_PAGE, (page - 1) * COMMENTS_PER_PAGE);
+      const result: PaginatedComments = await fetchComments(article.id, COMMENTS_PER_PAGE, (page - 1) * COMMENTS_PER_PAGE);
       if (append) {
         setArticleComments(prevComments => [...prevComments, ...result.comments]);
       } else {
         setArticleComments(result.comments);
       }
       setTotalComments(result.totalCount);
-      setCurrentPage(page);
+      setCommentsCurrentPage(page);
     } catch (error) {
-      console.error("Failed to load comments:", error);
+      console.error("ArticlePage: Failed to load comments:", error);
       setCommentsError("Could not load comments. Please try again later.");
     } finally {
       setCommentsLoading(false);
     }
-  }, [displayArticle?.id]);
+  }, [article?.id]); // Depend on article.id to re-trigger if the article changes
 
   useEffect(() => {
-    if (displayArticle?.id) {
+    // This effect will run once the `article` state is populated (and is not null/undefined).
+    if (article && article.id) {
+      console.log(`ArticlePage: Article (ID: ${article.id}) is loaded, now loading comments for it.`);
       loadComments(1); 
+    } else if (article === null) {
+        console.log("ArticlePage: Article is null (not found/error), skipping comment load.");
+        // Reset comments if article is not found or errored
+        setArticleComments([]);
+        setTotalComments(0);
+        setCommentsCurrentPage(1);
+        setCommentsLoading(false);
     }
-  }, [displayArticle?.id, loadComments]);
+  }, [article, loadComments]); // Re-run if 'article' object itself changes or 'loadComments' function reference changes.
 
   const handleCommentAdded = () => {
-    if (displayArticle?.id) {
+    if (article?.id) {
       loadComments(1, false); 
-      setIsCommentFormVisible(false); // Hide form after successful submission
+      setIsCommentFormVisible(false); 
     }
   };
 
   const handleLoadMoreComments = () => {
-    loadComments(currentPage + 1, true);
+    loadComments(commentsCurrentPage + 1, true);
   };
 
   const handleCancelComment = () => {
@@ -106,21 +145,22 @@ export default function ArticlePage() {
     );
   };
 
-
-  if (pageLoading || (isContextLoading && displayArticle === undefined)) {
+  // Primary loading state: if article is 'undefined', it means we are actively trying to fetch it.
+  if (article === undefined) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-lg text-muted-foreground">Loading article...</p>
+        <p className="mt-4 text-lg text-muted-foreground">Loading article for slug: "{slug}"...</p>
       </div>
     );
   }
   
-  if (displayArticle === null || displayArticle === undefined) {
+  // Not found state: if article is 'null', it means fetch completed but no article was found or an error occurred.
+  if (article === null) {
     return (
       <div className="text-center py-20">
         <h1 className="text-4xl font-bold mb-4">Article Not Found</h1>
-        <p className="text-muted-foreground mb-8">Sorry, we couldn't find the article you're looking for.</p>
+        <p className="text-muted-foreground mb-8">Sorry, we couldn't find an article with the slug: "{slug}".</p>
         <Button asChild>
           <Link href="/">Back to Home</Link>
         </Button>
@@ -128,7 +168,8 @@ export default function ArticlePage() {
     );
   }
 
-  const formattedDate = new Date(displayArticle.created_at).toLocaleDateString('en-US', {
+  // If we reach here, 'article' is a valid Article object.
+  const formattedDate = new Date(article.created_at).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
@@ -137,11 +178,11 @@ export default function ArticlePage() {
   return (
     <article className="max-w-4xl mx-auto py-8">
       <header className="mb-8">
-        <h1 className="text-4xl md:text-5xl font-bold mb-4 font-headline">{displayArticle.title}</h1>
+        <h1 className="text-4xl md:text-5xl font-bold mb-4 font-headline">{article.title}</h1>
         <div className="flex flex-wrap items-center text-sm text-muted-foreground space-x-4 mb-4">
           <div className="flex items-center">
             <UserCircle className="w-5 h-5 mr-1.5" />
-            <span>{displayArticle.author || 'Cloud Journal Team'}</span>
+            <span>{article.author || 'Cloud Journal Team'}</span>
           </div>
           <div className="flex items-center">
             <CalendarDays className="w-5 h-5 mr-1.5" />
@@ -149,7 +190,7 @@ export default function ArticlePage() {
           </div>
           <div className="flex items-center">
             <ThumbsUp className="w-5 h-5 mr-1.5" />
-            <span>{displayArticle.likes} Likes</span>
+            <span>{article.likes} Likes</span>
           </div>
           <div className="flex items-center">
             <MessageSquare className="w-5 h-5 mr-1.5" />
@@ -158,34 +199,34 @@ export default function ArticlePage() {
         </div>
         <div className="flex flex-wrap gap-2 mb-6">
           <Tag className="w-5 h-5 mr-1 text-muted-foreground self-center" />
-          {displayArticle.tags.map((tag) => (
+          {article.tags.map((tag) => (
             <Badge key={tag} variant="secondary" className="text-sm">
               {tag}
             </Badge>
           ))}
         </div>
-        {displayArticle.image_url && (
+        {article.image_url && (
           <div className="relative w-full h-72 md:h-96 rounded-lg overflow-hidden shadow-lg mb-8">
             <Image
-              src={displayArticle.image_url}
-              alt={displayArticle.title}
+              src={article.image_url}
+              alt={article.title}
               fill
               priority
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1000px"
               className="object-cover"
-              data-ai-hint={displayArticle.data_ai_hint || "technology abstract"}
+              data-ai-hint={article.data_ai_hint || "technology abstract"}
             />
           </div>
         )}
       </header>
 
-      <FeaturedCodeSnippet articleContent={displayArticle.content} />
+      <FeaturedCodeSnippet articleContent={article.content} />
       
       <div className="prose-base">
-        <MarkdownRenderer content={displayArticle.content} />
+        <MarkdownRenderer content={article.content} />
       </div>
 
-      <SocialShare article={displayArticle} />
+      <SocialShare article={article} />
 
       <section className="mt-10 pt-6 border-t">
         <div className="flex justify-between items-center mb-6">
@@ -200,7 +241,7 @@ export default function ArticlePage() {
 
         {isCommentFormVisible && (
           <CommentForm 
-            articleId={displayArticle.id} 
+            articleId={article.id} 
             onCommentAdded={handleCommentAdded}
             onCancel={handleCancelComment} 
           />
@@ -222,7 +263,7 @@ export default function ArticlePage() {
              <p className="text-muted-foreground text-center my-6">Be the first to comment!</p>
         )}
 
-        {!commentsLoading && (currentPage * COMMENTS_PER_PAGE) < totalComments && (
+        {!commentsLoading && (commentsCurrentPage * COMMENTS_PER_PAGE) < totalComments && (
           <div className="text-center mt-6">
             <Button onClick={handleLoadMoreComments} variant="outline">
               Load More Comments
@@ -233,7 +274,7 @@ export default function ArticlePage() {
       
       <div className="mt-12 text-center">
           <Button asChild variant="outline">
-            <Link href={`/admin/edit/${displayArticle.slug}`}>
+            <Link href={`/admin/edit/${article.slug}`}>
                 <Edit3 className="mr-2 h-4 w-4"/> Edit this Article (Admin)
             </Link>
           </Button>
@@ -241,3 +282,4 @@ export default function ArticlePage() {
     </article>
   );
 }
+
