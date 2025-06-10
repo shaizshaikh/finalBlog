@@ -18,7 +18,7 @@ export default function ArticleCard({ article }: ArticleCardProps) {
   });
 
   return (
-    <Card className="overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg flex flex-col md:flex-row">
+    <Card className={`overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 rounded-lg flex ${article.image_url ? 'flex-col md:flex-row' : 'flex-col'}`}>
       {article.image_url && (
         <div className="md:w-1/3 lg:w-1/4 xl:w-1/5 md:flex-shrink-0">
           <Link href={`/articles/${article.slug}`} className="block h-48 md:h-full relative">
