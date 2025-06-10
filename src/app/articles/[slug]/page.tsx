@@ -7,10 +7,10 @@ import Image from 'next/image';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import SocialShare from '@/components/SocialShare';
 import FeaturedCodeSnippet from '@/components/FeaturedCodeSnippet';
-import { CalendarDays, UserCircle, Tag, Edit3, ThumbsUp, Loader2, MessageSquare } from 'lucide-react';
+import { CalendarDays, UserCircle, Tag, Edit3, ThumbsUp, Loader2, MessageSquare, MessageCirclePlus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useEffect, useState, useCallback } from 'react';
-import type { Article, Comment as CommentType } from '@/types';
+import type { Article, Comment as CommentType, PaginatedComments } from '@/types';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import CommentList from '@/components/CommentList';
@@ -30,6 +30,7 @@ export default function ArticlePage() {
   const [commentsError, setCommentsError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalComments, setTotalComments] = useState(0);
+  const [isCommentFormVisible, setIsCommentFormVisible] = useState(false);
 
   const slug = typeof params.slug === 'string' ? params.slug : '';
 
@@ -62,7 +63,7 @@ export default function ArticlePage() {
     setCommentsLoading(true);
     setCommentsError(null);
     try {
-      const result = await fetchComments(displayArticle.id, COMMENTS_PER_PAGE, (page - 1) * COMMENTS_PER_PAGE);
+      const result: PaginatedComments = await fetchComments(displayArticle.id, COMMENTS_PER_PAGE, (page - 1) * COMMENTS_PER_PAGE);
       if (append) {
         setArticleComments(prevComments => [...prevComments, ...result.comments]);
       } else {
@@ -80,19 +81,23 @@ export default function ArticlePage() {
 
   useEffect(() => {
     if (displayArticle?.id) {
-      loadComments(1); // Load initial page of comments
+      loadComments(1); 
     }
   }, [displayArticle?.id, loadComments]);
 
   const handleCommentAdded = () => {
-    // Refresh the first page of comments to show the new one at the top
     if (displayArticle?.id) {
-      loadComments(1, false);
+      loadComments(1, false); 
+      setIsCommentFormVisible(false); // Hide form after successful submission
     }
   };
 
   const handleLoadMoreComments = () => {
     loadComments(currentPage + 1, true);
+  };
+
+  const handleCancelComment = () => {
+    setIsCommentFormVisible(false);
   };
 
   if (pageLoading || (isContextLoading && displayArticle === undefined)) {
@@ -176,10 +181,25 @@ export default function ArticlePage() {
       <SocialShare article={displayArticle} />
 
       <section className="mt-10 pt-6 border-t">
-        <h2 className="text-2xl font-semibold mb-6 font-headline">Comments ({totalComments})</h2>
-        <CommentForm articleId={displayArticle.id} onCommentAdded={handleCommentAdded} />
+        <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-semibold font-headline">Comments ({totalComments})</h2>
+            {!isCommentFormVisible && (
+            <Button variant="outline" onClick={() => setIsCommentFormVisible(true)}>
+                <MessageCirclePlus className="mr-2 h-5 w-5" />
+                Leave a Comment
+            </Button>
+            )}
+        </div>
+
+        {isCommentFormVisible && (
+          <CommentForm 
+            articleId={displayArticle.id} 
+            onCommentAdded={handleCommentAdded}
+            onCancel={handleCancelComment} 
+          />
+        )}
         
-        {commentsLoading && articleComments.length === 0 && (
+        {commentsLoading && articleComments.length === 0 && !isCommentFormVisible && (
           <div className="flex items-center justify-center my-6 p-4">
             <Loader2 className="mr-2 h-6 w-6 animate-spin text-primary" />
             <span className="text-muted-foreground">Loading comments...</span>
@@ -214,3 +234,4 @@ export default function ArticlePage() {
     </article>
   );
 }
+

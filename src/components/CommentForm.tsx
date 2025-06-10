@@ -10,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Send } from 'lucide-react';
+import { Loader2, Send, XCircle } from 'lucide-react';
 import { submitComment } from '@/app/actions/commentActions';
 
 const commentFormSchema = z.object({
@@ -22,10 +22,11 @@ type CommentFormData = z.infer<typeof commentFormSchema>;
 
 interface CommentFormProps {
   articleId: string;
-  onCommentAdded: () => void; // Callback to refresh comments list
+  onCommentAdded: () => void; 
+  onCancel: () => void; // New prop for cancel action
 }
 
-export default function CommentForm({ articleId, onCommentAdded }: CommentFormProps) {
+export default function CommentForm({ articleId, onCommentAdded, onCancel }: CommentFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const { register, handleSubmit, reset, formState: { errors } } = useForm<CommentFormData>({
@@ -50,8 +51,8 @@ export default function CommentForm({ articleId, onCommentAdded }: CommentFormPr
           title: "Comment Submitted!",
           description: "Your comment has been posted.",
         });
-        reset(); // Clear the form
-        onCommentAdded(); // Trigger refresh
+        reset(); 
+        onCommentAdded(); 
       } else {
         toast({
           title: "Submission Failed",
@@ -72,7 +73,7 @@ export default function CommentForm({ articleId, onCommentAdded }: CommentFormPr
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 bg-card p-6 rounded-lg shadow">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 bg-card p-6 rounded-lg shadow mb-6">
       <div>
         <Label htmlFor="authorName" className="block text-sm font-medium text-foreground">Your Name</Label>
         <Input
@@ -96,8 +97,12 @@ export default function CommentForm({ articleId, onCommentAdded }: CommentFormPr
         {errors.content && <p className="mt-1 text-sm text-destructive">{errors.content.message}</p>}
       </div>
 
-      <div>
-        <Button type="submit" disabled={isSubmitting} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+      <div className="flex items-center justify-end space-x-3">
+        <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+          <XCircle className="mr-2 h-4 w-4" />
+          Cancel
+        </Button>
+        <Button type="submit" disabled={isSubmitting} className="bg-primary hover:bg-primary/90 text-primary-foreground">
           {isSubmitting ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
@@ -109,3 +114,4 @@ export default function CommentForm({ articleId, onCommentAdded }: CommentFormPr
     </form>
   );
 }
+
