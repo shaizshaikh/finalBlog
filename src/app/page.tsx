@@ -55,9 +55,9 @@ export default function HomePage() {
     }
   }, []);
 
+  // Effect for loading home articles when search is cleared or on initial load without search
   useEffect(() => {
     if (!searchQuery) {
-      // Only load initial home articles if not searching
       loadHomeArticles(1);
     }
   // loadHomeArticles is memoized. searchQuery ensures this runs when search is cleared.
@@ -74,34 +74,28 @@ export default function HomePage() {
 
   useEffect(() => {
     const performSearch = async () => {
-      if (isContextLoading && !allArticlesForSearch.length) { 
-        // Context still loading all articles, wait.
-        return;
-      }
-
       if (searchQuery && allArticlesForSearch.length > 0) {
         setIsAISearchLoading(true);
         setSearchError(null);
-        setDisplayedSearchResults([]); // Clear previous search results
-        setSearchCurrentPage(1); // Reset pagination for new search
+        setDisplayedSearchResults([]); 
+        setSearchCurrentPage(1); 
 
         try {
-          const queryTags = searchQuery.toLowerCase().split(' ').filter(tag => tag.length > 0); // Min tag length for AI search
+          const queryTags = searchQuery.toLowerCase().split(' ').filter(tag => tag.length > 0);
 
           const resultsFromAI = await aiEnhancedTagBasedSearch({
             query: searchQuery,
             tags: queryTags, 
             articles: allArticlesForSearch.map(a => ({ 
-              id: a.id, // Include ID for potential keying later
+              id: a.id, 
               title: a.title, 
               content: a.excerpt || a.content.substring(0,200), 
               tags: a.tags 
             }))
           });
           
-          // Map AI results back to full Article objects from context
           const matchedArticles = allArticlesForSearch.filter(originalArticle => 
-            resultsFromAI.some(aiArticle => aiArticle.title === originalArticle.title) // Assuming title is unique enough for matching
+            resultsFromAI.some(aiArticle => aiArticle.title === originalArticle.title)
           );
           setAiSearchResults(matchedArticles);
           paginateAISearchResults(matchedArticles, 1);
@@ -109,7 +103,6 @@ export default function HomePage() {
         } catch (error) {
           console.error("AI search failed:", error);
           setSearchError("AI search encountered an issue. Showing basic keyword match.");
-          // Fallback to basic local keyword search (could also be paginated)
           const filtered = allArticlesForSearch.filter(
             (article) =>
               article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -123,19 +116,28 @@ export default function HomePage() {
           setIsAISearchLoading(false);
         }
       } else if (!searchQuery) {
-        // If search query is cleared, we rely on the other useEffect to load home articles
+        // If search query is cleared, reset search-specific states.
+        // Home articles are handled by a separate useEffect.
         setAiSearchResults([]);
         setDisplayedSearchResults([]);
         setSearchError(null);
       }
     };
 
-    if (!isContextLoading || allArticlesForSearch.length > 0) {
-      performSearch();
+    if (searchQuery) {
+      // Only perform search if context isn't loading OR allArticlesForSearch is populated.
+      // This prevents attempting search before essential data is ready.
+      if (!isContextLoading || allArticlesForSearch.length > 0) {
+        performSearch();
+      }
+      // If context is loading and allArticlesForSearch is empty, the effect will re-run when these dependencies change.
+    } else {
+      // No search query, ensure search-related states are cleared.
+      performSearch(); // This will trigger the '!searchQuery' branch inside performSearch.
     }
   // paginateAISearchResults is memoized.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, allArticlesForSearch, isContextLoading]);
+  }, [searchQuery, allArticlesForSearch, isContextLoading, paginateAISearchResults]);
 
   const handleLoadMoreHome = () => {
     if (homeCurrentPage < homeTotalPages) {
@@ -152,7 +154,7 @@ export default function HomePage() {
   // Determine articles to display based on search or home view
   const articlesToDisplay = searchQuery ? displayedSearchResults : homeArticles;
   const isLoadingDisplay = searchQuery ? isAISearchLoading : homeIsLoading;
-  const isLoadingMoreDisplay = searchQuery ? false : homeIsLoadingMore; // AI search loading is handled by isAISearchLoading
+  const isLoadingMoreDisplay = searchQuery ? false : homeIsLoadingMore; 
   const canLoadMore = searchQuery 
     ? searchCurrentPage < searchTotalPages
     : homeCurrentPage < homeTotalPages;
@@ -168,7 +170,8 @@ export default function HomePage() {
     );
   }
   
-  if (isLoadingDisplay && articlesToDisplay.length === 0) { // Covers initial search loading too
+  // This condition handles loading for initial search OR initial home content
+  if (isLoadingDisplay && articlesToDisplay.length === 0) { 
      return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -179,6 +182,7 @@ export default function HomePage() {
     );
   }
 
+  // Specific message for no search results found after search has completed
   if (searchQuery && articlesToDisplay.length === 0 && !isAISearchLoading && !isContextLoading) {
     return (
       <div className="text-center py-10">
@@ -196,18 +200,19 @@ export default function HomePage() {
 
   return (
     <div className="space-y-8">
-      {searchQuery && !searchError && (
+      {searchQuery && !isAISearchLoading && ( // Show search header only when search is active and not loading
         <div className="mb-6 pb-4 border-b">
           <h1 className="text-3xl font-bold font-headline">Search Results for "{searchQuery}"</h1>
-          <p className="text-muted-foreground mt-1">Found {aiSearchResults.length} articles matching your query.</p>
+          {searchError && (
+            <div className="mt-2 p-3 bg-destructive/10 border border-destructive/30 rounded-md">
+              <p className="text-destructive font-medium">{searchError}</p>
+              <p className="text-sm text-muted-foreground">Displaying articles based on keyword match.</p>
+            </div>
+          )}
+          {!searchError && <p className="text-muted-foreground mt-1">Found {aiSearchResults.length} articles matching your query.</p>}
         </div>
       )}
-      {searchError && (
-         <div className="mb-6 p-4 bg-destructive/10 border border-destructive/30 rounded-md">
-           <p className="text-destructive font-medium">{searchError}</p>
-           <p className="text-sm text-muted-foreground">Displaying articles based on keyword match.</p>
-         </div>
-      )}
+      
       {!searchQuery && (
         <div className="mb-10 text-center">
           <h1 className="text-4xl font-bold mb-3 font-headline">Welcome to Cloud Journal</h1>
@@ -236,21 +241,22 @@ export default function HomePage() {
         ))}
       </div>
 
-      {/* Load More Button for either home or search results */}
       {articlesToDisplay.length > 0 && canLoadMore && (
         <div className="text-center mt-8">
           <Button 
             onClick={loadMoreAction} 
-            disabled={isLoadingMoreDisplay || (searchQuery && isAISearchLoading)} // Disable if AI search is active, or home is loading more
+            disabled={isLoadingMoreDisplay || (searchQuery && isAISearchLoading && searchCurrentPage === 1)}
             variant="outline"
           >
-            {isLoadingMoreDisplay || (searchQuery && isAISearchLoading && searchCurrentPage === 1) ? ( // show spinner for initial search load or home load more
+            {(isLoadingMoreDisplay || (searchQuery && isAISearchLoading && searchCurrentPage === 1)) ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : null}
-            {isLoadingMoreDisplay ? 'Loading...' : 'Load More Articles'}
+            {isLoadingMoreDisplay ? 'Loading...' : (searchQuery ? 'Load More Search Results' : 'Load More Articles')}
           </Button>
         </div>
       )}
     </div>
   );
 }
+
+    
