@@ -57,14 +57,18 @@ export default function ArticleCard({ article }: ArticleCardProps) {
         </CardContent>
         <CardFooter className="flex flex-wrap gap-1.5 py-3 md:py-4 border-t">
           {article.tags.slice(0, 3).map((tag) => (
-            <Badge key={tag} variant="secondary" className="text-xs px-2 py-0.5">
-              {tag}
-            </Badge>
+            <Link key={tag} href={`/?q=${encodeURIComponent(tag)}`} passHref>
+              <Badge variant="secondary" className="text-xs px-2 py-0.5 hover:bg-accent hover:text-accent-foreground cursor-pointer">
+                {tag}
+              </Badge>
+            </Link>
           ))}
           {article.tags.length > 3 && (
-            <Badge variant="outline" className="text-xs px-2 py-0.5">
-              +{article.tags.length - 3} more
-            </Badge>
+             <Link href={`/?q=${encodeURIComponent(article.tags.join(','))}`} passHref>
+                <Badge variant="outline" className="text-xs px-2 py-0.5 hover:bg-accent hover:text-accent-foreground cursor-pointer">
+                +{article.tags.length - 3} more
+                </Badge>
+            </Link>
           )}
         </CardFooter>
       </div>

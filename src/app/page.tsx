@@ -86,7 +86,7 @@ export default function HomePage() {
         setSearchCurrentPage(1); // Reset pagination for new search
 
         try {
-          const queryTags = searchQuery.toLowerCase().split(' ').filter(tag => tag.length > 2); 
+          const queryTags = searchQuery.toLowerCase().split(' ').filter(tag => tag.length > 0); // Min tag length for AI search
 
           const resultsFromAI = await aiEnhancedTagBasedSearch({
             query: searchQuery,
@@ -230,7 +230,7 @@ export default function HomePage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="flex flex-col gap-6">
         {articlesToDisplay.map((article) => (
           <ArticleCard key={article.id} article={article} />
         ))}
