@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, type ReactNode } from 'react';
@@ -14,7 +15,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from '@/hooks/use-toast';
-import { Mail } from 'lucide-react';
+import { Mail, Loader2 } from 'lucide-react';
+import { subscribeToNewsletter } from '@/app/actions/newsletterActions';
 
 interface NewsletterDialogProps {
   children: ReactNode;
@@ -23,31 +25,36 @@ interface NewsletterDialogProps {
 export function NewsletterDialog({ children }: NewsletterDialogProps) {
   const [email, setEmail] = useState('');
   const [isOpen, setIsOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Basic email validation
-    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+    setIsSubmitting(true);
+
+    const result = await subscribeToNewsletter(email);
+
+    if (result.success) {
       toast({
-        title: "Invalid Email",
-        description: "Please enter a valid email address.",
+        title: "Subscription Successful!",
+        description: result.message,
+      });
+      setEmail('');
+      setIsOpen(false);
+    } else {
+      toast({
+        title: "Subscription Failed",
+        description: result.message,
         variant: "destructive",
       });
-      return;
     }
-    // Simulate subscription
-    console.log('Subscribing email:', email);
-    toast({
-      title: "Subscription Successful!",
-      description: `Thank you for subscribing with ${email}.`,
-    });
-    setEmail('');
-    setIsOpen(false);
+    setIsSubmitting(false);
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!isSubmitting) setIsOpen(open);
+    }}>
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
@@ -75,12 +82,16 @@ export function NewsletterDialog({ children }: NewsletterDialogProps) {
                 placeholder="you@example.com"
                 className="col-span-3"
                 required
+                disabled={isSubmitting}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Cancel</Button>
-            <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground">Subscribe</Button>
+            <Button type="button" variant="outline" onClick={() => setIsOpen(false)} disabled={isSubmitting}>Cancel</Button>
+            <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isSubmitting}>
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Subscribe
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
