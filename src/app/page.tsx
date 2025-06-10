@@ -7,12 +7,12 @@ import { useArticles } from '@/contexts/ArticleContext';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { aiEnhancedTagBasedSearch } from '@/ai/flows/tag-based-search';
-import { Loader2, SearchX, NewspaperIcon } from 'lucide-react'; // Corrected import
+import { Loader2, SearchX, NewspaperIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
 export default function HomePage() {
-  const { articles: allArticlesFromContext, isLoading: isContextLoading, refreshArticles } = useArticles();
+  const { articles: allArticlesFromContext, isLoading: isContextLoading } = useArticles();
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get('q');
 
@@ -20,17 +20,13 @@ export default function HomePage() {
   const [isAISearchLoading, setIsAISearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Ensure articles are loaded initially or if context is empty
-    if (allArticlesFromContext.length === 0 && !isContextLoading) {
-      refreshArticles();
-    }
-  }, [allArticlesFromContext, isContextLoading, refreshArticles]);
+  // The ArticleProvider handles initial loading of allArticlesFromContext.
+  // Removed useEffect that was causing potential infinite refresh loop here.
 
   useEffect(() => {
     const performSearch = async () => {
-      if (isContextLoading) { // Don't search if context is still loading articles
-        setDisplayedArticles([]); // Or show a loading state specific to search
+      if (isContextLoading && !allArticlesFromContext.length) { 
+        setDisplayedArticles([]); 
         return;
       }
 
@@ -72,11 +68,14 @@ export default function HomePage() {
       }
     };
 
-    performSearch();
+    // Only perform search if context is not loading OR if there are already articles (e.g. search query changes)
+    if (!isContextLoading || allArticlesFromContext.length > 0) {
+      performSearch();
+    }
   }, [searchQuery, allArticlesFromContext, isContextLoading]);
 
 
-  if (isContextLoading && !searchQuery) { // Initial load of all articles
+  if (isContextLoading && allArticlesFromContext.length === 0 && !searchQuery) { 
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -85,7 +84,7 @@ export default function HomePage() {
     );
   }
   
-  if (isAISearchLoading) { // AI search specific loading
+  if (isAISearchLoading) { 
      return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -95,7 +94,7 @@ export default function HomePage() {
   }
 
 
-  if (searchQuery && displayedArticles.length === 0 && !isAISearchLoading) {
+  if (searchQuery && displayedArticles.length === 0 && !isAISearchLoading && !isContextLoading) {
     return (
       <div className="text-center py-10">
         <SearchX className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
@@ -134,7 +133,7 @@ export default function HomePage() {
         </div>
       )}
       
-      {displayedArticles.length === 0 && !isAISearchLoading && !searchQuery && !isContextLoading && (
+      {!isContextLoading && displayedArticles.length === 0 && !isAISearchLoading && !searchQuery && (
          <div className="text-center py-10">
           <NewspaperIcon className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
           <h2 className="text-2xl font-semibold mb-2 font-headline">No Articles Yet</h2>

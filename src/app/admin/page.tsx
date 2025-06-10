@@ -6,7 +6,7 @@ import { useArticles } from '@/contexts/ArticleContext';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PlusCircle, Edit, Trash2, ExternalLink, Loader2 } from 'lucide-react'; // Added Loader2
+import { PlusCircle, Edit, Trash2, ExternalLink, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -20,31 +20,25 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';
-import React, { useEffect } from 'react'; // Added React
+import React from 'react';
 
 export default function AdminDashboardPage() {
-  const { articles, deleteArticle, refreshArticles, isLoading } = useArticles(); // Added isLoading
+  const { articles, deleteArticle, isLoading } = useArticles();
   const { toast } = useToast();
 
-  // Refresh articles when the component mounts or if articles array is empty and not loading
-  useEffect(() => {
-    if (articles.length === 0 && !isLoading) {
-      refreshArticles();
-    }
-  }, [articles.length, isLoading, refreshArticles]);
-
+  // The ArticleProvider handles initial loading.
+  // Removed useEffect that was causing potential infinite refresh loop here.
 
   const handleDelete = async (id: string, title: string) => {
     try {
       await deleteArticle(id);
       toast({ title: 'Article Deleted', description: `"${title}" has been deleted.` });
-      // refreshArticles(); // context should handle this now after delete
     } catch (error) {
       toast({ title: 'Error', description: 'Could not delete article.', variant: 'destructive' });
     }
   };
   
-  if (isLoading && articles.length === 0) {
+  if (isLoading && articles.length === 0) { // Show loading only if context is loading and we have no articles yet
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-300px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -65,7 +59,7 @@ export default function AdminDashboardPage() {
         </Button>
       </div>
 
-      {articles.length === 0 && !isLoading ? ( // check !isLoading here
+      {!isLoading && articles.length === 0 ? ( 
         <p className="text-muted-foreground text-center py-10">No articles yet. Start by creating one!</p>
       ) : (
         <div className="border rounded-lg shadow-sm">
@@ -88,7 +82,7 @@ export default function AdminDashboardPage() {
                     {article.tags.slice(0,2).map(tag => <Badge key={tag} variant="outline" className="mr-1 mb-1 text-xs">{tag}</Badge>)}
                     {article.tags.length > 2 && <Badge variant="outline" className="text-xs">+{article.tags.length-2}</Badge>}
                   </TableCell>
-                  <TableCell>{new Date(article.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell>{new Date(article.created_at).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right space-x-2">
                     <Button variant="ghost" size="icon" asChild title="View Article">
                       <Link href={`/articles/${article.slug}`} target="_blank">
