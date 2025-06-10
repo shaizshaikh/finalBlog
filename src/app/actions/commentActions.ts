@@ -2,7 +2,7 @@
 'use server';
 
 import { z } from 'zod';
-import { addCommentToDb, getCommentsByArticleIdFromDb, likeCommentInDb, type AddCommentData } from '@/lib/commentsStore';
+import { addCommentToDb, getCommentsByArticleIdFromDb, likeCommentInDb, dislikeCommentInDb, type AddCommentData } from '@/lib/commentsStore';
 import type { Comment, PaginatedComments } from '@/types';
 
 const commentSchema = z.object({
@@ -62,13 +62,13 @@ export async function fetchComments(
   }
 }
 
-interface LikeCommentResult {
+interface LikeDislikeCommentResult {
   success: boolean;
   updatedComment?: Comment;
   message?: string;
 }
 
-export async function likeComment(commentId: string): Promise<LikeCommentResult> {
+export async function likeComment(commentId: string): Promise<LikeDislikeCommentResult> {
   if (!commentId) {
     return { success: false, message: 'Comment ID is required.' };
   }
@@ -81,5 +81,21 @@ export async function likeComment(commentId: string): Promise<LikeCommentResult>
   } catch (error) {
     console.error(`Error liking comment ${commentId}:`, error);
     return { success: false, message: 'Failed to like comment.' };
+  }
+}
+
+export async function dislikeComment(commentId: string): Promise<LikeDislikeCommentResult> {
+  if (!commentId) {
+    return { success: false, message: 'Comment ID is required.' };
+  }
+  try {
+    const updatedComment = await dislikeCommentInDb(commentId);
+    if (!updatedComment) {
+      return { success: false, message: 'Comment not found or could not be disliked.' };
+    }
+    return { success: true, updatedComment };
+  } catch (error) {
+    console.error(`Error disliking comment ${commentId}:`, error);
+    return { success: false, message: 'Failed to dislike comment.' };
   }
 }

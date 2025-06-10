@@ -15,8 +15,8 @@ export const addCommentToDb = async (commentData: AddCommentData): Promise<Comme
   console.log(`commentsStore: Adding comment for article_id ${article_id}`);
   try {
     const result = await pool.query<Comment>(
-      `INSERT INTO comments (article_id, author_name, content, is_approved, created_at, likes)
-       VALUES ($1, $2, $3, TRUE, CURRENT_TIMESTAMP, 0)
+      `INSERT INTO comments (article_id, author_name, content, is_approved, created_at, likes, dislikes)
+       VALUES ($1, $2, $3, TRUE, CURRENT_TIMESTAMP, 0, 0)
        RETURNING *`,
       [article_id, author_name, content]
     );
@@ -40,7 +40,7 @@ export const getCommentsByArticleIdFromDb = async (
   try {
     // Query for comments with pagination
     const commentsResult = await pool.query<Comment>(
-      `SELECT id, article_id, author_name, content, created_at, is_approved, likes FROM comments
+      `SELECT id, article_id, author_name, content, created_at, is_approved, likes, dislikes FROM comments
        WHERE article_id = $1 AND is_approved = TRUE
        ORDER BY created_at DESC
        LIMIT $2 OFFSET $3`,
@@ -81,6 +81,25 @@ export const likeCommentInDb = async (commentId: string): Promise<Comment | unde
     return result.rows[0];
   } catch (error) {
     console.error(`commentsStore: Error liking comment ${commentId} in DB:`, error);
+    throw error;
+  }
+};
+
+export const dislikeCommentInDb = async (commentId: string): Promise<Comment | undefined> => {
+  console.log(`commentsStore: Disliking comment ${commentId}`);
+  try {
+    const result = await pool.query<Comment>(
+      'UPDATE comments SET dislikes = dislikes + 1 WHERE id = $1 RETURNING *',
+      [commentId]
+    );
+    if (result.rowCount === 0) {
+      console.warn(`commentsStore: Comment ${commentId} not found for disliking.`);
+      return undefined;
+    }
+    console.log(`commentsStore: Comment ${commentId} disliked. New dislikes: ${result.rows[0].dislikes}`);
+    return result.rows[0];
+  } catch (error) {
+    console.error(`commentsStore: Error disliking comment ${commentId} in DB:`, error);
     throw error;
   }
 };
