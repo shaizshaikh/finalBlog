@@ -16,14 +16,14 @@ import { generateSlugURL } from '@/ai/flows/generate-slug-url';
 import { generateTags as generateTagsAI } from '@/ai/flows/generate-tags';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Loader2, Wand2, TagsIcon } from 'lucide-react';
-import MarkdownRenderer from '../MarkdownRenderer'; // For HTML preview
+import MarkdownRenderer from '../MarkdownRenderer'; 
 import { sendNewArticleNotification } from '@/app/actions/newsletterActions';
 
 const articleSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
   content: z.string().min(10, 'Content must be at least 10 characters'),
   slug: z.string().min(3, 'Slug must be at least 3 characters').regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Invalid slug format'),
-  tags: z.string().min(1, 'At least one tag is required'), // Comma-separated string
+  tags: z.string().min(1, 'At least one tag is required'), 
   author: z.string().min(2, 'Author name is required'),
   imageUrl: z.string().url('Must be a valid URL').optional().or(z.literal('')),
   excerpt: z.string().max(300, "Excerpt too long").optional(),
@@ -33,8 +33,10 @@ const articleSchema = z.object({
 type ArticleFormData = z.infer<typeof articleSchema>;
 
 interface AdminArticleFormProps {
-  article?: Article; // For editing
+  article?: Article; 
 }
+
+const adminRedirectUrl = `/${process.env.NEXT_PUBLIC_ADMIN_SECRET_URL_SEGMENT || 'admin'}`;
 
 export default function AdminArticleForm({ article }: AdminArticleFormProps) {
   const { addArticle, updateArticle } = useArticles();
@@ -52,9 +54,9 @@ export default function AdminArticleForm({ article }: AdminArticleFormProps) {
       slug: article?.slug || '',
       tags: article?.tags.join(', ') || '',
       author: article?.author || 'Cloud Journal Admin',
-      imageUrl: article?.imageUrl || '',
+      imageUrl: article?.image_url || '',
       excerpt: article?.excerpt || '',
-      dataAiHint: article?.dataAiHint || '',
+      dataAiHint: article?.data_ai_hint || '',
     },
   });
 
@@ -106,35 +108,28 @@ export default function AdminArticleForm({ article }: AdminArticleFormProps) {
 
   const onSubmit = async (data: ArticleFormData) => {
     setIsSubmitting(true);
-    console.log('AdminArticleForm: Form submitted with data:', JSON.stringify(data, null, 2));
     const articleDataForStore = {
       ...data,
       tags: data.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
     };
 
     try {
-      if (article) { // Editing existing article
-        console.log('AdminArticleForm: Updating existing article ID:', article.id);
+      if (article) { 
         await updateArticle({ ...article, ...articleDataForStore });
         toast({ title: 'Article Updated', description: `"${data.title}" has been updated.` });
-      } else { // Creating new article
-        console.log('AdminArticleForm: Creating new article with data:', JSON.stringify(articleDataForStore, null, 2));
-        const newArticle = await addArticle(articleDataForStore); // This calls the context's addArticle
-        
-        console.log('AdminArticleForm: Received newArticle object from context:', JSON.stringify(newArticle, null, 2));
-
+      } else { 
+        const newArticle = await addArticle(articleDataForStore); 
         toast({ title: 'Article Created', description: `"${newArticle.title}" has been published.` });
         
-        if (newArticle && newArticle.id) { // Check if newArticle and its ID are valid
-            console.log('AdminArticleForm: Attempting to send new article notification for:', newArticle.title, 'ID:', newArticle.id);
+        if (newArticle && newArticle.id) { 
             await sendNewArticleNotification(newArticle);
             toast({ title: 'Newsletter Sent', description: `Notification for "${newArticle.title}" sent to subscribers.` });
         } else {
-            console.error('AdminArticleForm: newArticle object is invalid or missing ID after creation. Article from context:', newArticle);
-            toast({ title: 'Notification Error', description: 'Could not send newsletter: article data incomplete after creation.', variant: 'destructive'});
+            console.error('AdminArticleForm: newArticle object is invalid or missing ID after creation.');
+            toast({ title: 'Notification Error', description: 'Could not send newsletter: article data incomplete.', variant: 'destructive'});
         }
       }
-      router.push('/admin');
+      router.push(adminRedirectUrl); 
     } catch (error) {
       console.error('AdminArticleForm: Failed to save article:', error);
       toast({ title: 'Error saving article', description: (error instanceof Error ? error.message : 'An unknown error occurred.'), variant: 'destructive' });
@@ -223,4 +218,3 @@ export default function AdminArticleForm({ article }: AdminArticleFormProps) {
     </form>
   );
 }
-    
