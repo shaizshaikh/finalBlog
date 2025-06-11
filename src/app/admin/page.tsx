@@ -22,9 +22,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 
 type SortOption = "newest" | "oldest" | "title-asc" | "title-desc";
+const ADMIN_SEARCH_DEBOUNCE_DELAY = 500; // milliseconds
 
 export default function AdminDashboardPage() {
   const { 
@@ -39,8 +40,22 @@ export default function AdminDashboardPage() {
   } = useArticles();
   const { toast } = useToast();
 
-  const [searchTerm, setSearchTerm] = useState("");
+  // State for the input field, updates immediately
+  const [searchTermInput, setSearchTermInput] = useState("");
+  // Debounced search term used for actual filtering
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [sortOption, setSortOption] = useState<SortOption>("newest");
+
+  // Debounce effect for admin search
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(searchTermInput);
+    }, ADMIN_SEARCH_DEBOUNCE_DELAY);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [searchTermInput]);
 
   const handleDelete = async (id: string, title: string) => {
     try {
@@ -54,12 +69,12 @@ export default function AdminDashboardPage() {
   const filteredAndSortedArticles = useMemo(() => {
     let processedArticles = [...articles];
 
-    // Filter by search term
-    if (searchTerm.trim() !== "") {
+    // Filter by debounced search term
+    if (debouncedSearchTerm.trim() !== "") {
       processedArticles = processedArticles.filter(article =>
-        article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        article.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        article.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+        article.title.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        article.author.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        article.tags.some(tag => tag.toLowerCase().includes(debouncedSearchTerm.toLowerCase()))
       );
     }
 
@@ -79,7 +94,7 @@ export default function AdminDashboardPage() {
         break;
     }
     return processedArticles;
-  }, [articles, searchTerm, sortOption]);
+  }, [articles, debouncedSearchTerm, sortOption]);
 
 
   if (isContextLoading && articles.length === 0) { 
@@ -105,8 +120,8 @@ export default function AdminDashboardPage() {
       <div className="flex flex-col sm:flex-row gap-4 items-center p-4 bg-card border rounded-lg shadow-sm">
         <Input 
           placeholder="Search articles (title, author, tags)..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          value={searchTermInput} // Controlled by searchTermInput
+          onChange={(e) => setSearchTermInput(e.target.value)} // Updates searchTermInput immediately
           className="flex-grow"
         />
         <Select value={sortOption} onValueChange={(value) => setSortOption(value as SortOption)}>
@@ -124,10 +139,10 @@ export default function AdminDashboardPage() {
 
       {!isContextLoading && articles.length === 0 ? ( 
         <p className="text-muted-foreground text-center py-10">No articles yet. Start by creating one!</p>
-      ) : filteredAndSortedArticles.length === 0 && searchTerm ? (
+      ) : filteredAndSortedArticles.length === 0 && debouncedSearchTerm ? (
         <div className="text-center py-10">
             <FilterX className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-lg text-muted-foreground">No articles match your search criteria.</p>
+            <p className="text-lg text-muted-foreground">No articles match your search criteria for "{debouncedSearchTerm}".</p>
         </div>
       ) : (
         <div className="border rounded-lg shadow-sm overflow-x-auto">
@@ -189,7 +204,7 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {!isContextLoading && articles.length > 0 && currentPage < totalPages && !searchTerm && (
+      {!isContextLoading && articles.length > 0 && currentPage < totalPages && !debouncedSearchTerm && (
         <div className="text-center mt-8">
           <Button 
             onClick={() => fetchPage(currentPage + 1)} 
@@ -203,10 +218,10 @@ export default function AdminDashboardPage() {
           </Button>
         </div>
       )}
-      {searchTerm && articles.length > 0 && filteredAndSortedArticles.length > 0 && currentPage < totalPages && (
+      {debouncedSearchTerm && articles.length > 0 && filteredAndSortedArticles.length > 0 && currentPage < totalPages && (
          <p className="text-sm text-muted-foreground text-center mt-4">
             Searching and sorting is applied to currently loaded articles.
-            <Button variant="link" onClick={() => setSearchTerm("")} className="p-1">Clear search</Button> to see all articles and load more.
+            <Button variant="link" onClick={() => setSearchTermInput("")} className="p-1">Clear search</Button> to see all articles and load more.
         </p>
       )}
     </div>
