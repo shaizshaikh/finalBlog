@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -26,6 +27,7 @@ export default function SocialShare({ article }: SocialShareProps) {
   const [articleUrl, setArticleUrl] = useState('');
   const { likeArticle, articles: contextArticles } = useArticles(); // Use context for likes
   
+  // Ensure currentArticleState reflects the latest likes from the context or the passed article
   const currentArticleState = contextArticles.find(a => a.id === article.id) || article;
 
 
@@ -56,7 +58,10 @@ export default function SocialShare({ article }: SocialShareProps) {
   };
 
   return (
-    <div className="flex items-center space-x-3 mt-6 py-4 border-t border-b">
+    // Removed the outer div with border-t and border-b, and flex items-center space-x-3 mt-6 py-4
+    // This component will now return a React Fragment or just the buttons directly
+    // to be placed inside a flex container in the parent (ArticlePage)
+    <> 
       <Button variant="outline" onClick={handleLike} className="flex items-center">
         <ThumbsUp className="w-5 h-5 mr-2 text-primary" />
         Like ({currentArticleState.likes ?? 0})
@@ -95,6 +100,7 @@ export default function SocialShare({ article }: SocialShareProps) {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
+

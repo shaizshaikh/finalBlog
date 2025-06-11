@@ -6,11 +6,30 @@ import pool from '@/lib/db';
 
 // Type for article data when creating (id, createdAt, likes are auto-generated or defaulted by DB)
 type ArticleCreationData = Omit<Article, 'id' | 'created_at' | 'likes'>;
+export type ArticleSortOption = "newest" | "oldest" | "title-asc" | "title-desc";
 
-export const getArticles = async (limit: number, offset: number): Promise<PaginatedArticlesType> => {
-  console.log(`articlesStore: Fetching articles from DB with limit ${limit}, offset ${offset}`);
+export const getArticles = async (limit: number, offset: number, sortOption: ArticleSortOption = "newest"): Promise<PaginatedArticlesType> => {
+  console.log(`articlesStore: Fetching articles from DB with limit ${limit}, offset ${offset}, sort: ${sortOption}`);
+  
+  let orderByClause = 'ORDER BY created_at DESC'; // Default: newest
+  switch (sortOption) {
+    case "oldest":
+      orderByClause = 'ORDER BY created_at ASC';
+      break;
+    case "title-asc":
+      orderByClause = 'ORDER BY title ASC';
+      break;
+    case "title-desc":
+      orderByClause = 'ORDER BY title DESC';
+      break;
+    case "newest":
+    default:
+      orderByClause = 'ORDER BY created_at DESC';
+      break;
+  }
+
   try {
-    const articlesQuery = 'SELECT * FROM articles ORDER BY created_at DESC LIMIT $1 OFFSET $2';
+    const articlesQuery = `SELECT * FROM articles ${orderByClause} LIMIT $1 OFFSET $2`;
     const articlesResult = await pool.query<Article>(articlesQuery, [limit, offset]);
 
     const totalCountQuery = 'SELECT COUNT(*) FROM articles';
@@ -33,7 +52,6 @@ export const getArticles = async (limit: number, offset: number): Promise<Pagina
 export const getAllArticlesForSearch = async (): Promise<Article[]> => {
   console.log('articlesStore: Fetching ALL articles from DB for search purposes');
   try {
-    // Ensure ALL fields for the Article type are selected, especially 'slug'
     const result = await pool.query<Article>('SELECT * FROM articles ORDER BY created_at DESC');
     console.log(`articlesStore: Fetched ${result.rowCount} articles for search. First article slug: ${result.rows[0]?.slug}`);
     return result.rows;

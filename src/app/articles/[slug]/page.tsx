@@ -7,7 +7,7 @@ import Image from 'next/image';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import SocialShare from '@/components/SocialShare';
 import FeaturedCodeSnippet from '@/components/FeaturedCodeSnippet';
-import { CalendarDays, UserCircle, Tag, Edit3, ThumbsUp, Loader2, MessageSquare, MessageCirclePlus } from 'lucide-react';
+import { CalendarDays, UserCircle, Tag, Edit3, ThumbsUp, Loader2, MessageSquare, MessageCirclePlus, Newspaper } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useEffect, useState, useCallback } from 'react';
 import type { Article, Comment as CommentType, PaginatedComments } from '@/types';
@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import CommentList from '@/components/CommentList';
 import CommentForm from '@/components/CommentForm';
 import { fetchComments } from '@/app/actions/commentActions';
+import { NewsletterDialog } from '@/components/NewsletterDialog';
 
 const COMMENTS_PER_PAGE = 5;
 
@@ -23,16 +24,8 @@ export default function ArticlePage() {
   const params = useParams();
   const { getArticleBySlug, isLoading: isContextLoading } = useArticles();
   
-  // article state:
-  // undefined: actively trying to load the article.
-  // Article object: article successfully loaded.
-  // null: article explicitly determined to be not found, or an error occurred during fetch.
   const [article, setArticle] = useState<Article | null | undefined>(undefined);
-  
-  // Page-level loading state, distinct from the article data state.
-  // This could be true if, for instance, comments are loading even if the article is found.
-  // For the main article fetch, it mirrors the period when `article` is `undefined`.
-  const [isPageLoading, setIsPageLoading] = useState(true);
+  const [isPageLoading, setIsPageLoading] = useState(true); // General page loading for initial article fetch
 
 
   const [articleComments, setArticleComments] = useState<CommentType[]>([]);
@@ -48,24 +41,23 @@ export default function ArticlePage() {
     if (slug) {
       const fetchArticleData = async () => {
         console.log(`ArticlePage: Initiating fetch for slug: "${slug}". isContextLoading: ${isContextLoading}`);
-        setArticle(undefined); // Reset to loading state for the article object itself
-        setIsPageLoading(true); // General page loading indicator
+        setArticle(undefined); 
+        setIsPageLoading(true); 
 
         try {
-          // getArticleBySlug will use allArticlesForSearch if context is loaded, otherwise fallback to DB
           const foundArticle = await getArticleBySlug(slug);
           if (foundArticle) {
             console.log(`ArticlePage: SUCCESS - Article found for slug "${slug}": ${foundArticle.title}`);
             setArticle(foundArticle);
           } else {
             console.log(`ArticlePage: FAILED - Article NOT found for slug "${slug}" after getArticleBySlug.`);
-            setArticle(null); // Explicitly set to null (not found)
+            setArticle(null); 
           }
         } catch (error) {
           console.error(`ArticlePage: CRITICAL ERROR fetching article data for slug "${slug}":`, error);
-          setArticle(null); // Error occurred
+          setArticle(null); 
         } finally {
-          setIsPageLoading(false); // Finished attempting to load the article data
+          setIsPageLoading(false); 
           console.log(`ArticlePage: Fetch attempt finished for slug "${slug}". Article state:`, article === undefined ? "loading" : (article === null ? "not found/error" : "found"));
         }
       };
@@ -73,19 +65,16 @@ export default function ArticlePage() {
       fetchArticleData();
     } else {
       console.log("ArticlePage: No slug provided, setting article to null.");
-      setArticle(null); // No slug, so definitely not found
+      setArticle(null); 
       setIsPageLoading(false);
     }
-  // getArticleBySlug reference changes when its deps (allArticlesForSearch, isContextLoading) change.
-  // isContextLoading ensures this effect re-runs if context was busy during the first attempt.
   }, [slug, getArticleBySlug, isContextLoading]);
 
 
   const loadComments = useCallback(async (page: number, append = false) => {
-    // Only load comments if we have a valid article ID
     if (!article?.id) {
         console.log("ArticlePage: loadComments - Aborted, article or article.id is not available.");
-        setCommentsLoading(false); // Ensure loading state is false if we can't proceed
+        setCommentsLoading(false); 
         return;
     }
 
@@ -107,22 +96,20 @@ export default function ArticlePage() {
     } finally {
       setCommentsLoading(false);
     }
-  }, [article?.id]); // Depend on article.id to re-trigger if the article changes
+  }, [article?.id]); 
 
   useEffect(() => {
-    // This effect will run once the `article` state is populated (and is not null/undefined).
     if (article && article.id) {
       console.log(`ArticlePage: Article (ID: ${article.id}) is loaded, now loading comments for it.`);
       loadComments(1); 
     } else if (article === null) {
         console.log("ArticlePage: Article is null (not found/error), skipping comment load.");
-        // Reset comments if article is not found or errored
         setArticleComments([]);
         setTotalComments(0);
         setCommentsCurrentPage(1);
         setCommentsLoading(false);
     }
-  }, [article, loadComments]); // Re-run if 'article' object itself changes or 'loadComments' function reference changes.
+  }, [article, loadComments]);
 
   const handleCommentAdded = () => {
     if (article?.id) {
@@ -145,17 +132,15 @@ export default function ArticlePage() {
     );
   };
 
-  // Primary loading state: if article is 'undefined', it means we are actively trying to fetch it.
-  if (article === undefined) {
+  if (article === undefined || (isContextLoading && !article)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-lg text-muted-foreground">Loading article for slug: "{slug}"...</p>
+        <p className="mt-4 text-lg text-muted-foreground">Loading article: "{slug}"...</p>
       </div>
     );
   }
   
-  // Not found state: if article is 'null', it means fetch completed but no article was found or an error occurred.
   if (article === null) {
     return (
       <div className="text-center py-20">
@@ -168,7 +153,6 @@ export default function ArticlePage() {
     );
   }
 
-  // If we reach here, 'article' is a valid Article object.
   const formattedDate = new Date(article.created_at).toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
@@ -226,7 +210,16 @@ export default function ArticlePage() {
         <MarkdownRenderer content={article.content} />
       </div>
 
-      <SocialShare article={article} />
+      <div className="flex items-center flex-wrap gap-3 mt-6 py-4 border-t border-b">
+        <SocialShare article={article} />
+        <NewsletterDialog>
+          <Button variant="outline" className="flex items-center">
+            <Newspaper className="w-5 h-5 mr-2 text-accent" />
+            Subscribe to Updates
+          </Button>
+        </NewsletterDialog>
+      </div>
+
 
       <section className="mt-10 pt-6 border-t">
         <div className="flex justify-between items-center mb-6">

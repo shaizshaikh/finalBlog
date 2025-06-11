@@ -4,14 +4,15 @@
 import ArticleCard from '@/components/ArticleCard';
 import type { Article, PaginatedArticles } from '@/types';
 import { useArticles } from '@/contexts/ArticleContext'; 
-import { getArticles as fetchArticlesFromDb } from '@/lib/articlesStore';
+import { getArticles as fetchArticlesFromDb, type ArticleSortOption } from '@/lib/articlesStore';
 import { ARTICLES_PER_PAGE_HOME } from '@/config/constants';
 import { useSearchParams } from 'next/navigation';
 import React, { useEffect, useState, useCallback } from 'react';
 import { aiEnhancedTagBasedSearch } from '@/ai/flows/tag-based-search';
-import { Loader2, SearchX, NewspaperIcon } from 'lucide-react';
+import { Loader2, SearchX, NewspaperIcon, ListFilter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function HomePage() {
   const { allArticlesForSearch, isLoading: isContextLoading } = useArticles();
@@ -24,6 +25,7 @@ export default function HomePage() {
   const [homeTotalPages, setHomeTotalPages] = useState(0);
   const [homeIsLoading, setHomeIsLoading] = useState(true);
   const [homeIsLoadingMore, setHomeIsLoadingMore] = useState(false);
+  const [homeSortOption, setHomeSortOption] = useState<ArticleSortOption>("newest");
 
   // State for AI search results
   const [aiSearchResults, setAiSearchResults] = useState<Article[]>([]); 
@@ -33,12 +35,12 @@ export default function HomePage() {
   const [isAISearchLoading, setIsAISearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   
-  const loadHomeArticles = useCallback(async (page: number, append = false) => {
+  const loadHomeArticles = useCallback(async (page: number, append = false, sortOrder = homeSortOption) => {
     if (page === 1 && !append) setHomeIsLoading(true);
     else setHomeIsLoadingMore(true);
 
     try {
-      const result: PaginatedArticles = await fetchArticlesFromDb(ARTICLES_PER_PAGE_HOME, (page - 1) * ARTICLES_PER_PAGE_HOME);
+      const result: PaginatedArticles = await fetchArticlesFromDb(ARTICLES_PER_PAGE_HOME, (page - 1) * ARTICLES_PER_PAGE_HOME, sortOrder);
       if (append) {
         setHomeArticles(prev => [...prev, ...result.articles]);
       } else {
@@ -52,14 +54,14 @@ export default function HomePage() {
       if (page === 1 && !append) setHomeIsLoading(false);
       else setHomeIsLoadingMore(false);
     }
-  }, []);
+  }, [homeSortOption]);
 
   useEffect(() => {
     if (!searchQuery) {
-      loadHomeArticles(1);
+      loadHomeArticles(1, false, homeSortOption);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery]); 
+  }, [searchQuery, homeSortOption]); // Re-load if searchQuery clears or sortOption changes
 
   const paginateAISearchResults = useCallback((fullResults: Article[], page: number) => {
     const start = (page - 1) * ARTICLES_PER_PAGE_HOME;
@@ -87,7 +89,13 @@ export default function HomePage() {
               id: a.id, // Pass ID to AI
               title: a.title, 
               content: a.excerpt || a.content.substring(0,500), // Provide more content for better matching
-              tags: a.tags 
+              tags: a.tags,
+              slug: a.slug, // Ensure slug is passed for AI if needed, though primary use is ID
+              created_at: a.created_at,
+              author: a.author,
+              image_url: a.image_url,
+              likes: a.likes,
+              data_ai_hint: a.data_ai_hint
             }))
           });
           
@@ -138,7 +146,7 @@ export default function HomePage() {
 
   const handleLoadMoreHome = () => {
     if (homeCurrentPage < homeTotalPages) {
-      loadHomeArticles(homeCurrentPage + 1, true);
+      loadHomeArticles(homeCurrentPage + 1, true, homeSortOption);
     }
   };
 
@@ -146,6 +154,11 @@ export default function HomePage() {
     if (searchCurrentPage < searchTotalPages) {
       paginateAISearchResults(aiSearchResults, searchCurrentPage + 1);
     }
+  };
+  
+  const handleSortChange = (value: ArticleSortOption) => {
+    setHomeSortOption(value);
+    // loadHomeArticles will be called by its own useEffect when homeSortOption changes
   };
 
   const articlesToDisplay = searchQuery ? displayedSearchResults : homeArticles;
@@ -201,11 +214,29 @@ export default function HomePage() {
       )}
       
       {!searchQuery && !homeIsLoading && (
-        <div className="mb-10 text-center">
-          <h1 className="text-4xl font-bold mb-3 font-headline">Welcome to Cloud Journal</h1>
-          <p className="text-xl text-muted-foreground">
-            Your daily digest of insights in cloud technology and development.
-          </p>
+        <div className="mb-6 text-center md:text-left">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
+            <div>
+              <h1 className="text-4xl font-bold mb-1 font-headline">Welcome to Cloud Journal</h1>
+              <p className="text-xl text-muted-foreground">
+                Your daily digest of insights in cloud technology and development.
+              </p>
+            </div>
+            <div className="w-full md:w-auto">
+              <Select value={homeSortOption} onValueChange={handleSortChange}>
+                <SelectTrigger className="w-full md:w-[220px]">
+                  <ListFilter className="h-4 w-4 mr-2 text-muted-foreground" />
+                  <SelectValue placeholder="Sort articles..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Sort: Newest First</SelectItem>
+                  <SelectItem value="oldest">Sort: Oldest First</SelectItem>
+                  <SelectItem value="title-asc">Sort: Title (A-Z)</SelectItem>
+                  <SelectItem value="title-desc">Sort: Title (Z-A)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
       )}
       
@@ -240,7 +271,7 @@ export default function HomePage() {
         <div className="text-center mt-8">
           <Button 
             onClick={loadMoreAction} 
-            disabled={isAISearchLoading && searchQuery != null} // Disable load more for search if AI search is actively running
+            disabled={(isAISearchLoading && searchQuery != null) || homeIsLoadingMore}
             variant="outline"
           >
             {(isAISearchLoading && searchQuery != null) || homeIsLoadingMore ? (
