@@ -7,7 +7,7 @@ import Image from 'next/image';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import SocialShare from '@/components/SocialShare';
 import FeaturedCodeSnippet from '@/components/FeaturedCodeSnippet';
-import { CalendarDays, UserCircle, Tag, Edit3, ThumbsUp, Loader2, MessageSquare, MessageCirclePlus, Newspaper } from 'lucide-react';
+import { CalendarDays, UserCircle, Tag, ThumbsUp, Loader2, MessageSquare, MessageCirclePlus, Newspaper } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useEffect, useState, useCallback } from 'react';
 import type { Article, Comment as CommentType, PaginatedComments } from '@/types';
@@ -24,9 +24,8 @@ export default function ArticlePage() {
   const params = useParams();
   const { getArticleBySlug, isLoading: isContextLoading } = useArticles();
   
-  const [article, setArticle] = useState<Article | null | undefined>(undefined);
-  const [isPageLoading, setIsPageLoading] = useState(true); // General page loading for initial article fetch
-
+  const [article, setArticle] = useState<Article | null | undefined>(undefined); // undefined: loading, null: not found
+  const [isPageLoading, setIsPageLoading] = useState(true); 
 
   const [articleComments, setArticleComments] = useState<CommentType[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(true);
@@ -220,7 +219,6 @@ export default function ArticlePage() {
         </NewsletterDialog>
       </div>
 
-
       <section className="mt-10 pt-6 border-t">
         <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-semibold font-headline">Comments ({totalComments})</h2>
@@ -265,14 +263,7 @@ export default function ArticlePage() {
         )}
       </section>
       
-      <div className="mt-12 text-center">
-          <Button asChild variant="outline">
-            <Link href={`/admin/edit/${article.slug}`}>
-                <Edit3 className="mr-2 h-4 w-4"/> Edit this Article (Admin)
-            </Link>
-          </Button>
-      </div>
+      {/* Removed "Edit this Article (Admin)" button from here */}
     </article>
   );
 }
-

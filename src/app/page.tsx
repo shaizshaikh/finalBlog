@@ -9,25 +9,25 @@ import { ARTICLES_PER_PAGE_HOME } from '@/config/constants';
 import { useSearchParams } from 'next/navigation';
 import React, { useEffect, useState, useCallback } from 'react';
 import { aiEnhancedTagBasedSearch } from '@/ai/flows/tag-based-search';
-import { Loader2, SearchX, NewspaperIcon, ListFilter } from 'lucide-react';
+import { Loader2, SearchX, NewspaperIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'; // For sort icon tooltip
 
 export default function HomePage() {
   const { allArticlesForSearch, isLoading: isContextLoading } = useArticles();
   const searchParams = useSearchParams();
   const searchQuery = searchParams.get('q');
+  const sortQuery = searchParams.get('sort') as ArticleSortOption | null;
 
-  // State for non-search article display
   const [homeArticles, setHomeArticles] = useState<Article[]>([]);
   const [homeCurrentPage, setHomeCurrentPage] = useState(1);
   const [homeTotalPages, setHomeTotalPages] = useState(0);
   const [homeIsLoading, setHomeIsLoading] = useState(true);
   const [homeIsLoadingMore, setHomeIsLoadingMore] = useState(false);
-  const [homeSortOption, setHomeSortOption] = useState<ArticleSortOption>("newest");
+  
+  const [currentSortOption, setCurrentSortOption] = useState<ArticleSortOption>("newest");
 
-  // State for AI search results
   const [aiSearchResults, setAiSearchResults] = useState<Article[]>([]); 
   const [displayedSearchResults, setDisplayedSearchResults] = useState<Article[]>([]); 
   const [searchCurrentPage, setSearchCurrentPage] = useState(1);
@@ -35,7 +35,13 @@ export default function HomePage() {
   const [isAISearchLoading, setIsAISearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   
-  const loadHomeArticles = useCallback(async (page: number, append = false, sortOrder = homeSortOption) => {
+  useEffect(() => {
+    const sortFromUrl = sortQuery || 'newest';
+    setCurrentSortOption(sortFromUrl);
+  }, [sortQuery]);
+
+  const loadHomeArticles = useCallback(async (page: number, append = false, sortOrder = currentSortOption) => {
+    console.log(`HomePage: loadHomeArticles for page ${page}, sort: ${sortOrder}, append: ${append}`);
     if (page === 1 && !append) setHomeIsLoading(true);
     else setHomeIsLoadingMore(true);
 
@@ -54,14 +60,15 @@ export default function HomePage() {
       if (page === 1 && !append) setHomeIsLoading(false);
       else setHomeIsLoadingMore(false);
     }
-  }, [homeSortOption]);
+  }, [currentSortOption]);
 
   useEffect(() => {
     if (!searchQuery) {
-      loadHomeArticles(1, false, homeSortOption);
+      console.log(`HomePage: No search query, loading home articles with sort: ${currentSortOption}`);
+      loadHomeArticles(1, false, currentSortOption);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, homeSortOption]); // Re-load if searchQuery clears or sortOption changes
+  }, [searchQuery, currentSortOption]);
 
   const paginateAISearchResults = useCallback((fullResults: Article[], page: number) => {
     const start = (page - 1) * ARTICLES_PER_PAGE_HOME;
@@ -76,21 +83,18 @@ export default function HomePage() {
       if (searchQuery && allArticlesForSearch.length > 0) {
         setIsAISearchLoading(true);
         setSearchError(null);
-        // Do NOT clear displayedSearchResults here for smoother transition.
-        // Resetting to page 1 for new search results display is handled by paginateAISearchResults.
-
+        
         try {
           const queryTags = searchQuery.toLowerCase().split(' ').filter(tag => tag.length > 0);
-
           const resultsFromAI = await aiEnhancedTagBasedSearch({
             query: searchQuery,
             tags: queryTags, 
             articles: allArticlesForSearch.map(a => ({ 
-              id: a.id, // Pass ID to AI
+              id: a.id,
               title: a.title, 
-              content: a.excerpt || a.content.substring(0,500), // Provide more content for better matching
+              content: a.excerpt || a.content.substring(0,500),
               tags: a.tags,
-              slug: a.slug, // Ensure slug is passed for AI if needed, though primary use is ID
+              slug: a.slug,
               created_at: a.created_at,
               author: a.author,
               image_url: a.image_url,
@@ -99,10 +103,9 @@ export default function HomePage() {
             }))
           });
           
-          // Match AI results back to original articles using ID for accuracy
           const matchedArticles = resultsFromAI
             .map(aiArticle => allArticlesForSearch.find(originalArticle => originalArticle.id === aiArticle.id))
-            .filter((article): article is Article => article !== undefined); // Type guard to filter out undefined
+            .filter((article): article is Article => article !== undefined); 
 
           setAiSearchResults(matchedArticles);
           paginateAISearchResults(matchedArticles, 1); 
@@ -129,24 +132,21 @@ export default function HomePage() {
       }
     };
 
-    // Trigger search if query exists AND (context is not loading OR allArticlesForSearch is already populated)
-    // This prevents premature search if context data isn't ready yet.
     if (searchQuery) {
       if (!isContextLoading || allArticlesForSearch.length > 0) {
         performSearch();
       }
     } else {
-       setAiSearchResults([]); // Clear search results if searchQuery is empty
+       setAiSearchResults([]);
        setDisplayedSearchResults([]);
        setSearchError(null);
-       // Home articles will be loaded by their own effect if not already loaded.
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, allArticlesForSearch, isContextLoading, paginateAISearchResults]); // isContextLoading added to deps
+  }, [searchQuery, allArticlesForSearch, isContextLoading, paginateAISearchResults]);
 
   const handleLoadMoreHome = () => {
     if (homeCurrentPage < homeTotalPages) {
-      loadHomeArticles(homeCurrentPage + 1, true, homeSortOption);
+      loadHomeArticles(homeCurrentPage + 1, true, currentSortOption);
     }
   };
 
@@ -156,11 +156,6 @@ export default function HomePage() {
     }
   };
   
-  const handleSortChange = (value: ArticleSortOption) => {
-    setHomeSortOption(value);
-    // loadHomeArticles will be called by its own useEffect when homeSortOption changes
-  };
-
   const articlesToDisplay = searchQuery ? displayedSearchResults : homeArticles;
   const isLoadingDisplay = searchQuery 
     ? (isAISearchLoading && displayedSearchResults.length === 0) 
@@ -201,7 +196,7 @@ export default function HomePage() {
   return (
     <div className="space-y-8">
       {searchQuery && (
-        <div className="mb-6">
+        <div className="mb-2"> {/* Reduced bottom margin */}
           <h1 className="text-3xl font-bold font-headline">Search Results for "{searchQuery}"</h1>
           {searchError && (
             <div className="mt-2 p-3 bg-destructive/10 border border-destructive/30 rounded-md">
@@ -222,25 +217,11 @@ export default function HomePage() {
                 Your daily digest of insights in cloud technology and development.
               </p>
             </div>
-            <div className="w-full md:w-auto">
-              <Select value={homeSortOption} onValueChange={handleSortChange}>
-                <SelectTrigger className="w-full md:w-[220px]">
-                  <ListFilter className="h-4 w-4 mr-2 text-muted-foreground" />
-                  <SelectValue placeholder="Sort articles..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="newest">Sort: Newest First</SelectItem>
-                  <SelectItem value="oldest">Sort: Oldest First</SelectItem>
-                  <SelectItem value="title-asc">Sort: Title (A-Z)</SelectItem>
-                  <SelectItem value="title-desc">Sort: Title (Z-A)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Sort Select removed from here, moved to Header */}
           </div>
         </div>
       )}
       
-      {/* Inline loading message for active search when results are already shown */}
       {searchQuery && isAISearchLoading && articlesToDisplay.length > 0 && (
          <div className="flex items-center justify-center my-6 p-4 rounded-md bg-muted/50">
             <Loader2 className="mr-3 h-6 w-6 animate-spin text-primary" />
