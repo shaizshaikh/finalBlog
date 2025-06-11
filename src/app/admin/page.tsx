@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Edit, Trash2, Loader2, FilterX } from 'lucide-react';
+import { PlusCircle, Edit, Trash2, Loader2, FilterX, Search, X as XIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -25,7 +25,7 @@ import { Badge } from '@/components/ui/badge';
 import React, { useState, useMemo, useEffect } from 'react';
 
 type SortOption = "newest" | "oldest" | "title-asc" | "title-desc";
-const ADMIN_SEARCH_DEBOUNCE_DELAY = 500; // milliseconds
+const ADMIN_SEARCH_DEBOUNCE_DELAY = 500; 
 
 export default function AdminDashboardPage() {
   const { 
@@ -40,13 +40,11 @@ export default function AdminDashboardPage() {
   } = useArticles();
   const { toast } = useToast();
 
-  // State for the input field, updates immediately
   const [searchTermInput, setSearchTermInput] = useState("");
-  // Debounced search term used for actual filtering
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [sortOption, setSortOption] = useState<SortOption>("newest");
+  const [isAdminSearchVisible, setIsAdminSearchVisible] = useState(false); // New state
 
-  // Debounce effect for admin search
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchTerm(searchTermInput);
@@ -69,7 +67,6 @@ export default function AdminDashboardPage() {
   const filteredAndSortedArticles = useMemo(() => {
     let processedArticles = [...articles];
 
-    // Filter by debounced search term
     if (debouncedSearchTerm.trim() !== "") {
       processedArticles = processedArticles.filter(article =>
         article.title.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
@@ -78,7 +75,6 @@ export default function AdminDashboardPage() {
       );
     }
 
-    // Sort
     switch (sortOption) {
       case "newest":
         processedArticles.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -96,6 +92,12 @@ export default function AdminDashboardPage() {
     return processedArticles;
   }, [articles, debouncedSearchTerm, sortOption]);
 
+  const toggleAdminSearch = () => {
+    setIsAdminSearchVisible(prev => !prev);
+    if (isAdminSearchVisible && searchTermInput.trim()) { // If hiding and there was a search term
+      setSearchTermInput(''); // Clear search term
+    }
+  };
 
   if (isContextLoading && articles.length === 0) { 
     return (
@@ -110,32 +112,45 @@ export default function AdminDashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <h2 className="text-3xl font-bold font-headline">Manage Articles ({totalArticles})</h2>
-        <Button asChild>
-          <Link href="/admin/create">
-            <PlusCircle className="mr-2 h-5 w-5" /> Create New Article
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="icon" 
+            onClick={toggleAdminSearch}
+            aria-label={isAdminSearchVisible ? "Hide search and sort" : "Show search and sort"}
+          >
+            {isAdminSearchVisible ? <XIcon className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+          </Button>
+          <Button asChild>
+            <Link href="/admin/create">
+              <PlusCircle className="mr-2 h-5 w-5" /> Create New Article
+            </Link>
+          </Button>
+        </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 items-center p-4 bg-card border rounded-lg shadow-sm">
-        <Input 
-          placeholder="Search articles (title, author, tags)..."
-          value={searchTermInput} // Controlled by searchTermInput
-          onChange={(e) => setSearchTermInput(e.target.value)} // Updates searchTermInput immediately
-          className="flex-grow"
-        />
-        <Select value={sortOption} onValueChange={(value) => setSortOption(value as SortOption)}>
-          <SelectTrigger className="w-full sm:w-[200px]">
-            <SelectValue placeholder="Sort by..." />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="newest">Sort: Newest First</SelectItem>
-            <SelectItem value="oldest">Sort: Oldest First</SelectItem>
-            <SelectItem value="title-asc">Sort: Title (A-Z)</SelectItem>
-            <SelectItem value="title-desc">Sort: Title (Z-A)</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {isAdminSearchVisible && (
+        <div className="flex flex-col sm:flex-row gap-4 items-center p-4 bg-card border rounded-lg shadow-sm">
+          <Input 
+            placeholder="Search articles (title, author, tags)..."
+            value={searchTermInput}
+            onChange={(e) => setSearchTermInput(e.target.value)}
+            className="flex-grow"
+            autoFocus
+          />
+          <Select value={sortOption} onValueChange={(value) => setSortOption(value as SortOption)}>
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectValue placeholder="Sort by..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Sort: Newest First</SelectItem>
+              <SelectItem value="oldest">Sort: Oldest First</SelectItem>
+              <SelectItem value="title-asc">Sort: Title (A-Z)</SelectItem>
+              <SelectItem value="title-desc">Sort: Title (Z-A)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {!isContextLoading && articles.length === 0 ? ( 
         <p className="text-muted-foreground text-center py-10">No articles yet. Start by creating one!</p>
@@ -221,7 +236,7 @@ export default function AdminDashboardPage() {
       {debouncedSearchTerm && articles.length > 0 && filteredAndSortedArticles.length > 0 && currentPage < totalPages && (
          <p className="text-sm text-muted-foreground text-center mt-4">
             Searching and sorting is applied to currently loaded articles.
-            <Button variant="link" onClick={() => setSearchTermInput("")} className="p-1">Clear search</Button> to see all articles and load more.
+            <Button variant="link" onClick={() => { setSearchTermInput(""); setIsAdminSearchVisible(false); }} className="p-1">Clear search</Button> to see all articles and load more.
         </p>
       )}
     </div>
