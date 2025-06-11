@@ -63,7 +63,7 @@ export default function HomePage() {
       }
       setHomeTotalPages(result.totalPages);
       setHomeCurrentPage(result.currentPage);
-      if (page === 1 && !append) setSearchStatusMessage(`Showing ${result.articles.length} of ${result.totalCount} articles.`);
+      if (page === 1 && !append) setSearchStatusMessage(`Showing latest ${result.articles.length > 0 ? result.articles.length : ''} articles. Total ${result.totalCount} articles available.`);
     } catch (error) {
       console.error("Failed to load home articles:", error);
       if (page === 1 && !append) setSearchStatusMessage("Error loading articles.");
@@ -140,14 +140,12 @@ export default function HomePage() {
 
         } finally {
           setIsAISearchLoading(false);
-          // Check if search is done and no results were found BEFORE setting the message
-          // This state will be derived from aiSearchResults.length after performSearch completes
         }
       } else if (!searchQuery) {
         setAiSearchResults([]);
         setDisplayedSearchResults([]);
         setSearchError(null);
-        setSearchStatusMessage(null); // Clear search message when not searching
+        // Status message for non-search state handled by loadHomeArticles or initial loading
       }
     };
 
@@ -161,12 +159,11 @@ export default function HomePage() {
        setAiSearchResults([]);
        setDisplayedSearchResults([]);
        setSearchError(null);
-       setSearchStatusMessage(null); 
+       // setSearchStatusMessage(null); // Cleared or set by loadHomeArticles
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, allArticlesForSearch, isContextLoading, paginateAISearchResults]);
 
-  // Effect to update message when search results are empty after search completion
   useEffect(() => {
     if (searchQuery && !isAISearchLoading && aiSearchResults.length === 0) {
         setSearchStatusMessage(`No articles found for "${searchQuery}".`);
@@ -201,7 +198,7 @@ export default function HomePage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-lg text-muted-foreground font-headline" role="status" aria-live="polite" aria-atomic="true">
+        <p className="mt-4 text-lg text-muted-foreground font-headline" role="status" aria-live="assertive" aria-atomic="true">
           {searchStatusMessage || 'Loading articles...'}
         </p>
       </div>
@@ -213,7 +210,7 @@ export default function HomePage() {
       <div className="text-center py-10">
         <SearchX className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
         <h1 className="text-2xl font-semibold mb-2 font-headline">No Articles Found</h1>
-        <div role="status" aria-live="polite" aria-atomic="true" className="text-muted-foreground mb-6">
+        <div role="status" aria-live="assertive" aria-atomic="true" className="text-muted-foreground mb-6">
            {searchStatusMessage || `Your search for "${searchQuery}" did not match any articles. Try a different query or explore all articles.`}
         </div>
         <Button asChild variant="outline">
@@ -225,7 +222,7 @@ export default function HomePage() {
 
   return (
     <div className="space-y-8">
-       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+       <div className="sr-only" role="status" aria-live="assertive" aria-atomic="true">
         {searchStatusMessage}
       </div>
       {searchQuery && (
@@ -268,7 +265,6 @@ export default function HomePage() {
           <p className="text-muted-foreground mb-6">
             Check back soon for new content!
           </p>
-          {/* Removed "Go to Admin" button from here */}
         </div>
       )}
 
@@ -295,3 +291,4 @@ export default function HomePage() {
     </div>
   );
 }
+
