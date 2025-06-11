@@ -25,9 +25,8 @@ interface SocialShareProps {
 export default function SocialShare({ article }: SocialShareProps) {
   const { toast } = useToast();
   const [articleUrl, setArticleUrl] = useState('');
-  const { likeArticle, articles: contextArticles } = useArticles(); // Use context for likes
-  
-  // Ensure currentArticleState reflects the latest likes from the context or the passed article
+  const { likeArticle, articles: contextArticles } = useArticles();
+
   const currentArticleState = contextArticles.find(a => a.id === article.id) || article;
 
 
@@ -58,18 +57,15 @@ export default function SocialShare({ article }: SocialShareProps) {
   };
 
   return (
-    // Removed the outer div with border-t and border-b, and flex items-center space-x-3 mt-6 py-4
-    // This component will now return a React Fragment or just the buttons directly
-    // to be placed inside a flex container in the parent (ArticlePage)
-    <> 
-      <Button variant="outline" onClick={handleLike} className="flex items-center">
+    <>
+      <Button variant="outline" onClick={handleLike} className="flex items-center" aria-label={`Like this article, current likes ${currentArticleState.likes ?? 0}`}>
         <ThumbsUp className="w-5 h-5 mr-2 text-primary" />
         Like ({currentArticleState.likes ?? 0})
       </Button>
-      
+
       <Dialog>
         <DialogTrigger asChild>
-          <Button variant="outline" className="flex items-center">
+          <Button variant="outline" className="flex items-center" aria-label="Open share dialog">
             <Share2 className="w-5 h-5 mr-2 text-accent" />
             Share
           </Button>
@@ -82,19 +78,19 @@ export default function SocialShare({ article }: SocialShareProps) {
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center space-x-2 mt-4">
-            <Input defaultValue={articleUrl} readOnly />
-            <Button type="button" size="icon" variant="outline" onClick={copyToClipboard}>
+            <Input defaultValue={articleUrl} readOnly aria-label="Article URL" />
+            <Button type="button" size="icon" variant="outline" onClick={copyToClipboard} aria-label="Copy article URL to clipboard">
               <CopyIcon className="h-4 w-4" />
             </Button>
           </div>
           <div className="mt-4 flex justify-center space-x-3">
-            <Button variant="ghost" size="icon" onClick={() => shareLink('https://twitter.com/intent/tweet?url={url}&text={title}')}>
+            <Button variant="ghost" size="icon" onClick={() => shareLink('https://twitter.com/intent/tweet?url={url}&text={title}')} aria-label="Share on Twitter">
               <Twitter className="w-6 h-6 text-[#1DA1F2]" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => shareLink('https://www.facebook.com/sharer/sharer.php?u={url}')}>
+            <Button variant="ghost" size="icon" onClick={() => shareLink('https://www.facebook.com/sharer/sharer.php?u={url}')} aria-label="Share on Facebook">
               <Facebook className="w-6 h-6 text-[#1877F2]" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => shareLink('https://www.linkedin.com/shareArticle?mini=true&url={url}&title={title}')}>
+            <Button variant="ghost" size="icon" onClick={() => shareLink('https://www.linkedin.com/shareArticle?mini=true&url={url}&title={title}')} aria-label="Share on LinkedIn">
               <Linkedin className="w-6 h-6 text-[#0A66C2]" />
             </Button>
           </div>
@@ -103,4 +99,3 @@ export default function SocialShare({ article }: SocialShareProps) {
     </>
   );
 }
-

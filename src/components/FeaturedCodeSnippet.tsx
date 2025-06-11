@@ -1,8 +1,9 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { detectAndCopyCodeSnippet, type DetectAndCopyCodeSnippetInput, type DetectAndCopyCodeSnippetOutput } from '@/ai/flows/find-code-snippet';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card'; // Removed CardTitle
 import { Button } from '@/components/ui/button';
 import { Copy, Code2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -49,7 +50,7 @@ const FeaturedCodeSnippet: React.FC<FeaturedCodeSnippetProps> = ({ articleConten
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center my-6 p-4 border rounded-md">
+      <div className="flex items-center justify-center my-6 p-4 border rounded-md" role="status" aria-live="polite">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
         <span>Analyzing for featured code snippet...</span>
       </div>
@@ -67,16 +68,16 @@ const FeaturedCodeSnippet: React.FC<FeaturedCodeSnippetProps> = ({ articleConten
   }
 
   if (!snippetData?.hasCodeSnippet || !snippetData.codeSnippet) {
-    return null; // No featured snippet or AI decided not to feature one
+    return null; 
   }
 
   return (
     <Card className="my-8 bg-secondary/50 shadow-md">
       <CardHeader>
-        <CardTitle className="flex items-center text-lg">
+        <h2 className="text-lg font-headline flex items-center"> {/* Changed from CardTitle to h2 */}
           <Code2 className="w-6 h-6 mr-2 text-primary" />
           Featured Code Snippet
-        </CardTitle>
+        </h2>
       </CardHeader>
       <CardContent>
         <div className="relative bg-card p-4 rounded-md border">

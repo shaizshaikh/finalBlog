@@ -10,8 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import React, { useState, useEffect } from 'react';
 
 interface CommentListProps {
-  initialComments: Comment[]; 
-  onCommentLikedOrDisliked?: (updatedComment: Comment) => void; 
+  initialComments: Comment[];
+  onCommentLikedOrDisliked?: (updatedComment: Comment) => void;
 }
 
 export default function CommentList({ initialComments, onCommentLikedOrDisliked }: CommentListProps) {
@@ -90,20 +90,22 @@ export default function CommentList({ initialComments, onCommentLikedOrDisliked 
             </div>
             <p className="mt-1 text-sm text-foreground/90 whitespace-pre-line">{comment.content}</p>
             <div className="mt-3 flex items-center space-x-3">
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => handleLikeComment(comment.id)}
                 className="text-muted-foreground hover:text-primary p-1 h-auto flex items-center"
+                aria-label={`Like this comment by ${comment.author_name}, current likes: ${comment.likes}`}
               >
                 <ThumbsUp className="w-4 h-4 mr-1.5" />
                 ({comment.likes})
               </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => handleDislikeComment(comment.id)}
                 className="text-muted-foreground hover:text-destructive p-1 h-auto flex items-center"
+                aria-label={`Dislike this comment by ${comment.author_name}, current dislikes: ${comment.dislikes}`}
               >
                 <ThumbsDown className="w-4 h-4 mr-1.5" />
                 ({comment.dislikes})

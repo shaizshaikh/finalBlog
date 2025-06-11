@@ -25,12 +25,12 @@ import { Badge } from '@/components/ui/badge';
 import React, { useState, useMemo, useEffect } from 'react';
 
 type SortOption = "newest" | "oldest" | "title-asc" | "title-desc";
-const ADMIN_SEARCH_DEBOUNCE_DELAY = 500; 
+const ADMIN_SEARCH_DEBOUNCE_DELAY = 500;
 
 export default function AdminDashboardPage() {
-  const { 
-    articles, 
-    deleteArticle, 
+  const {
+    articles,
+    deleteArticle,
     isLoading: isContextLoading,
     isLoadingMore,
     fetchPage,
@@ -43,7 +43,7 @@ export default function AdminDashboardPage() {
   const [searchTermInput, setSearchTermInput] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [sortOption, setSortOption] = useState<SortOption>("newest");
-  const [isAdminSearchVisible, setIsAdminSearchVisible] = useState(false); // New state
+  const [isAdminSearchVisible, setIsAdminSearchVisible] = useState(false);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -63,7 +63,7 @@ export default function AdminDashboardPage() {
       toast({ title: 'Error', description: 'Could not delete article.', variant: 'destructive' });
     }
   };
-  
+
   const filteredAndSortedArticles = useMemo(() => {
     let processedArticles = [...articles];
 
@@ -93,13 +93,16 @@ export default function AdminDashboardPage() {
   }, [articles, debouncedSearchTerm, sortOption]);
 
   const toggleAdminSearch = () => {
-    setIsAdminSearchVisible(prev => !prev);
-    if (isAdminSearchVisible && searchTermInput.trim()) { // If hiding and there was a search term
-      setSearchTermInput(''); // Clear search term
-    }
+    setIsAdminSearchVisible(prev => {
+      if (prev && searchTermInput.trim()) { // If hiding and there was a search term
+        setSearchTermInput(''); // Clear search term
+      }
+      return !prev;
+    });
   };
 
-  if (isContextLoading && articles.length === 0) { 
+
+  if (isContextLoading && articles.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-300px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -113,11 +116,11 @@ export default function AdminDashboardPage() {
       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <h2 className="text-3xl font-bold font-headline">Manage Articles ({totalArticles})</h2>
         <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="icon" 
+          <Button
+            variant="outline"
+            size="icon"
             onClick={toggleAdminSearch}
-            aria-label={isAdminSearchVisible ? "Hide search and sort" : "Show search and sort"}
+            aria-label={isAdminSearchVisible ? "Hide search and sort controls" : "Show search and sort controls"}
           >
             {isAdminSearchVisible ? <XIcon className="h-5 w-5" /> : <Search className="h-5 w-5" />}
           </Button>
@@ -131,15 +134,16 @@ export default function AdminDashboardPage() {
 
       {isAdminSearchVisible && (
         <div className="flex flex-col sm:flex-row gap-4 items-center p-4 bg-card border rounded-lg shadow-sm">
-          <Input 
+          <Input
             placeholder="Search articles (title, author, tags)..."
             value={searchTermInput}
             onChange={(e) => setSearchTermInput(e.target.value)}
             className="flex-grow"
             autoFocus
+            aria-label="Search articles in admin dashboard"
           />
           <Select value={sortOption} onValueChange={(value) => setSortOption(value as SortOption)}>
-            <SelectTrigger className="w-full sm:w-[200px]">
+            <SelectTrigger className="w-full sm:w-[200px]" aria-label="Sort articles by">
               <SelectValue placeholder="Sort by..." />
             </SelectTrigger>
             <SelectContent>
@@ -152,7 +156,7 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {!isContextLoading && articles.length === 0 ? ( 
+      {!isContextLoading && articles.length === 0 ? (
         <p className="text-muted-foreground text-center py-10">No articles yet. Start by creating one!</p>
       ) : filteredAndSortedArticles.length === 0 && debouncedSearchTerm ? (
         <div className="text-center py-10">
@@ -182,14 +186,14 @@ export default function AdminDashboardPage() {
                   </TableCell>
                   <TableCell>{new Date(article.created_at).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right space-x-2">
-                    <Button variant="ghost" size="icon" asChild title="Edit Article">
+                    <Button variant="ghost" size="icon" asChild title="Edit Article" aria-label={`Edit article: ${article.title}`}>
                       <Link href={`/admin/edit/${article.slug}`}>
                         <Edit className="h-4 w-4 text-blue-500" />
                       </Link>
                     </Button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" title="Delete Article">
+                        <Button variant="ghost" size="icon" title="Delete Article" aria-label={`Delete article: ${article.title}`}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </AlertDialogTrigger>
@@ -221,8 +225,8 @@ export default function AdminDashboardPage() {
 
       {!isContextLoading && articles.length > 0 && currentPage < totalPages && !debouncedSearchTerm && (
         <div className="text-center mt-8">
-          <Button 
-            onClick={() => fetchPage(currentPage + 1)} 
+          <Button
+            onClick={() => fetchPage(currentPage + 1)}
             disabled={isLoadingMore}
             variant="outline"
           >

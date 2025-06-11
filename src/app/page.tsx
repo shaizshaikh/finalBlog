@@ -1,9 +1,9 @@
 
-"use client"; 
+"use client";
 
 import ArticleCard from '@/components/ArticleCard';
 import type { Article, PaginatedArticles } from '@/types';
-import { useArticles } from '@/contexts/ArticleContext'; 
+import { useArticles } from '@/contexts/ArticleContext';
 import { getArticles as fetchArticlesFromDb, type ArticleSortOption } from '@/lib/articlesStore';
 import { ARTICLES_PER_PAGE_HOME } from '@/config/constants';
 import { useSearchParams } from 'next/navigation';
@@ -12,7 +12,6 @@ import { aiEnhancedTagBasedSearch } from '@/ai/flows/tag-based-search';
 import { Loader2, SearchX, NewspaperIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'; // For sort icon tooltip
 
 export default function HomePage() {
   const { allArticlesForSearch, isLoading: isContextLoading } = useArticles();
@@ -25,20 +24,27 @@ export default function HomePage() {
   const [homeTotalPages, setHomeTotalPages] = useState(0);
   const [homeIsLoading, setHomeIsLoading] = useState(true);
   const [homeIsLoadingMore, setHomeIsLoadingMore] = useState(false);
-  
+
   const [currentSortOption, setCurrentSortOption] = useState<ArticleSortOption>("newest");
 
-  const [aiSearchResults, setAiSearchResults] = useState<Article[]>([]); 
-  const [displayedSearchResults, setDisplayedSearchResults] = useState<Article[]>([]); 
+  const [aiSearchResults, setAiSearchResults] = useState<Article[]>([]);
+  const [displayedSearchResults, setDisplayedSearchResults] = useState<Article[]>([]);
   const [searchCurrentPage, setSearchCurrentPage] = useState(1);
   const [searchTotalPages, setSearchTotalPages] = useState(0);
   const [isAISearchLoading, setIsAISearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-  
+  const [searchStatusMessage, setSearchStatusMessage] = useState<string | null>(null);
+
+
   useEffect(() => {
     const sortFromUrl = sortQuery || 'newest';
     setCurrentSortOption(sortFromUrl);
-  }, [sortQuery]);
+    // If not searching, and sort order changes, reload home articles
+    if (!searchQuery && sortFromUrl !== currentSortOption) {
+      loadHomeArticles(1, false, sortFromUrl);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortQuery, searchQuery]); // Removed currentSortOption to prevent loop with loadHomeArticles
 
   const loadHomeArticles = useCallback(async (page: number, append = false, sortOrder = currentSortOption) => {
     console.log(`HomePage: loadHomeArticles for page ${page}, sort: ${sortOrder}, append: ${append}`);
@@ -60,7 +66,7 @@ export default function HomePage() {
       if (page === 1 && !append) setHomeIsLoading(false);
       else setHomeIsLoadingMore(false);
     }
-  }, [currentSortOption]);
+  }, [currentSortOption]); // currentSortOption is a dependency here
 
   useEffect(() => {
     if (!searchQuery) {
@@ -68,7 +74,7 @@ export default function HomePage() {
       loadHomeArticles(1, false, currentSortOption);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, currentSortOption]);
+  }, [searchQuery, currentSortOption, loadHomeArticles]); // loadHomeArticles added due to its dependency on currentSortOption
 
   const paginateAISearchResults = useCallback((fullResults: Article[], page: number) => {
     const start = (page - 1) * ARTICLES_PER_PAGE_HOME;
@@ -83,18 +89,19 @@ export default function HomePage() {
       if (searchQuery && allArticlesForSearch.length > 0) {
         setIsAISearchLoading(true);
         setSearchError(null);
-        
+        setSearchStatusMessage(`Searching for "${searchQuery}"...`);
+
         try {
           const queryTags = searchQuery.toLowerCase().split(' ').filter(tag => tag.length > 0);
           const resultsFromAI = await aiEnhancedTagBasedSearch({
             query: searchQuery,
-            tags: queryTags, 
-            articles: allArticlesForSearch.map(a => ({ 
+            tags: queryTags,
+            articles: allArticlesForSearch.map(a => ({
               id: a.id,
-              title: a.title, 
+              title: a.title,
               content: a.excerpt || a.content.substring(0,500),
               tags: a.tags,
-              slug: a.slug,
+              slug: a.slug, // Ensure slug and other necessary fields are passed
               created_at: a.created_at,
               author: a.author,
               image_url: a.image_url,
@@ -102,13 +109,15 @@ export default function HomePage() {
               data_ai_hint: a.data_ai_hint
             }))
           });
-          
+
           const matchedArticles = resultsFromAI
             .map(aiArticle => allArticlesForSearch.find(originalArticle => originalArticle.id === aiArticle.id))
-            .filter((article): article is Article => article !== undefined); 
+            .filter((article): article is Article => article !== undefined);
 
           setAiSearchResults(matchedArticles);
-          paginateAISearchResults(matchedArticles, 1); 
+          paginateAISearchResults(matchedArticles, 1);
+          setSearchStatusMessage(`Found ${matchedArticles.length} articles matching your query "${searchQuery}".`);
+
 
         } catch (error) {
           console.error("AI search failed:", error);
@@ -122,27 +131,37 @@ export default function HomePage() {
           );
           setAiSearchResults(filtered);
           paginateAISearchResults(filtered, 1);
+          setSearchStatusMessage(`Found ${filtered.length} articles using basic keyword match for "${searchQuery}".`);
+
         } finally {
           setIsAISearchLoading(false);
+          if (aiSearchResults.length === 0 && !isAISearchLoading) { // Check after search is done
+             setSearchStatusMessage(`No articles found for "${searchQuery}".`);
+          }
         }
       } else if (!searchQuery) {
         setAiSearchResults([]);
-        setDisplayedSearchResults([]); 
+        setDisplayedSearchResults([]);
         setSearchError(null);
+        setSearchStatusMessage(null);
       }
     };
 
     if (searchQuery) {
       if (!isContextLoading || allArticlesForSearch.length > 0) {
         performSearch();
+      } else if (isContextLoading) {
+        setSearchStatusMessage("Loading article data before searching...");
       }
     } else {
        setAiSearchResults([]);
        setDisplayedSearchResults([]);
        setSearchError(null);
+       setSearchStatusMessage(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, allArticlesForSearch, isContextLoading, paginateAISearchResults]);
+
 
   const handleLoadMoreHome = () => {
     if (homeCurrentPage < homeTotalPages) {
@@ -155,37 +174,37 @@ export default function HomePage() {
       paginateAISearchResults(aiSearchResults, searchCurrentPage + 1);
     }
   };
-  
-  const articlesToDisplay = searchQuery ? displayedSearchResults : homeArticles;
-  const isLoadingDisplay = searchQuery 
-    ? (isAISearchLoading && displayedSearchResults.length === 0) 
-    : (homeIsLoading && homeArticles.length === 0); 
 
-  const isLoadingMoreDisplay = searchQuery ? (isAISearchLoading && displayedSearchResults.length > 0) : homeIsLoadingMore; 
-  const canLoadMore = searchQuery 
+  const articlesToDisplay = searchQuery ? displayedSearchResults : homeArticles;
+  const isLoadingDisplay = searchQuery
+    ? (isAISearchLoading && displayedSearchResults.length === 0)
+    : (homeIsLoading && homeArticles.length === 0);
+
+  const isLoadingMoreDisplay = searchQuery ? (isAISearchLoading && displayedSearchResults.length > 0) : homeIsLoadingMore;
+  const canLoadMore = searchQuery
     ? searchCurrentPage < searchTotalPages
     : homeCurrentPage < homeTotalPages;
   const loadMoreAction = searchQuery ? handleLoadMoreSearch : handleLoadMoreHome;
 
-  if ((isContextLoading && allArticlesForSearch.length === 0 && !searchQuery) || (isLoadingDisplay && articlesToDisplay.length === 0)) { 
+  if ((isContextLoading && allArticlesForSearch.length === 0 && !searchQuery) || (isLoadingDisplay && articlesToDisplay.length === 0)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="mt-4 text-lg text-muted-foreground font-headline">
+        <p className="mt-4 text-lg text-muted-foreground font-headline" role="status" aria-live="polite" aria-atomic="true">
           {searchQuery && isAISearchLoading ? `Searching for "${searchQuery}"...` : 'Loading articles...'}
         </p>
       </div>
     );
   }
-  
+
   if (searchQuery && articlesToDisplay.length === 0 && !isAISearchLoading && !isContextLoading) {
     return (
       <div className="text-center py-10">
         <SearchX className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
         <h2 className="text-2xl font-semibold mb-2 font-headline">No Articles Found</h2>
-        <p className="text-muted-foreground mb-6">
-          Your search for "{searchQuery}" did not match any articles. Try a different query or explore all articles.
-        </p>
+        <div role="status" aria-live="polite" aria-atomic="true" className="text-muted-foreground mb-6">
+           Your search for "{searchQuery}" did not match any articles. Try a different query or explore all articles.
+        </div>
         <Button asChild variant="outline">
           <Link href="/">View All Articles</Link>
         </Button>
@@ -195,8 +214,11 @@ export default function HomePage() {
 
   return (
     <div className="space-y-8">
+       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {searchStatusMessage}
+      </div>
       {searchQuery && (
-        <div className="mb-2"> {/* Reduced bottom margin */}
+        <div className="mb-2">
           <h1 className="text-3xl font-bold font-headline">Search Results for "{searchQuery}"</h1>
           {searchError && (
             <div className="mt-2 p-3 bg-destructive/10 border border-destructive/30 rounded-md">
@@ -204,10 +226,10 @@ export default function HomePage() {
               <p className="text-sm text-muted-foreground">Displaying articles based on keyword match.</p>
             </div>
           )}
-          {!searchError && !isAISearchLoading && <p className="text-muted-foreground mt-1">Found {aiSearchResults.length} articles matching your query.</p>}
+           {!searchError && !isAISearchLoading && <p className="text-muted-foreground mt-1">Found {aiSearchResults.length} articles.</p>}
         </div>
       )}
-      
+
       {!searchQuery && !homeIsLoading && (
         <div className="mb-6 text-center md:text-left">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6">
@@ -217,18 +239,17 @@ export default function HomePage() {
                 Your daily digest of insights in cloud technology and development.
               </p>
             </div>
-            {/* Sort Select removed from here, moved to Header */}
           </div>
         </div>
       )}
-      
+
       {searchQuery && isAISearchLoading && articlesToDisplay.length > 0 && (
          <div className="flex items-center justify-center my-6 p-4 rounded-md bg-muted/50">
             <Loader2 className="mr-3 h-6 w-6 animate-spin text-primary" />
             <span className="text-muted-foreground font-medium">Updating search for "{searchQuery}"...</span>
         </div>
       )}
-      
+
       {!isContextLoading && articlesToDisplay.length === 0 && !isLoadingDisplay && !searchQuery && (
          <div className="text-center py-10">
           <NewspaperIcon className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
@@ -250,8 +271,8 @@ export default function HomePage() {
 
       {articlesToDisplay.length > 0 && canLoadMore && !isLoadingMoreDisplay && (
         <div className="text-center mt-8">
-          <Button 
-            onClick={loadMoreAction} 
+          <Button
+            onClick={loadMoreAction}
             disabled={(isAISearchLoading && searchQuery != null) || homeIsLoadingMore}
             variant="outline"
           >
@@ -265,4 +286,3 @@ export default function HomePage() {
     </div>
   );
 }
-    

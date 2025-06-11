@@ -40,7 +40,7 @@ export default function Header() {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setIsClient(true); // Indicates component has mounted on the client
+    setIsClient(true);
   }, []);
 
   const isAdminPage = pathname.startsWith('/admin');
@@ -54,10 +54,15 @@ export default function Header() {
     const sortFromUrl = (searchParams.get('sort') as ArticleSortOption) || 'newest';
     setCurrentSortOption(sortFromUrl);
 
+    // Show search if there's a query, not on admin, and it's not already visible
     if (queryFromUrl && !isAdminPage && !isSearchInputVisible) {
       setIsSearchInputVisible(true);
     }
+    // If no query, not admin, and search is visible, hide it (unless user explicitly opened it)
+    // This part might be tricky if we want to preserve explicit open state.
+    // For now, let's assume URL drives visibility primarily for initial load.
   }, [searchParams, isAdminPage, isSearchInputVisible]);
+
 
   const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -73,14 +78,20 @@ export default function Header() {
       } else {
         params.delete('q');
       }
-      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+       // Only push to homepage for header search
+      if (isHomePage) {
+        router.push(`/?${params.toString()}`, { scroll: false });
+      } else {
+        // If on another page like /articles/[slug], a search should redirect to homepage
+        router.push(`/?${params.toString()}`);
+      }
     }, DEBOUNCE_DELAY);
   };
 
   const handleSearchFormSubmit = (e?: React.FormEvent<HTMLFormElement>) => {
     e?.preventDefault();
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-    
+
     const trimmedValue = inputValue.trim();
     const params = new URLSearchParams(searchParams.toString());
     if (trimmedValue) {
@@ -88,9 +99,18 @@ export default function Header() {
     } else {
       params.delete('q');
     }
-    if (params.toString() !== searchParams.toString()) {
-       router.push(`${pathname}?${params.toString()}`, { scroll: false });
+
+    const currentPathWithExistingParams = `${pathname}?${searchParams.toString()}`;
+    const newPathWithNewParams = `${isHomePage ? '/' : pathname}?${params.toString()}`;
+    
+    if (currentPathWithExistingParams !== newPathWithNewParams || !isHomePage) {
+        if (isHomePage) {
+            router.push(`/?${params.toString()}`, { scroll: false });
+        } else {
+             router.push(`/?${params.toString()}`);
+        }
     }
+    
     if (searchInputRef.current) {
       searchInputRef.current.blur();
     }
@@ -99,24 +119,41 @@ export default function Header() {
   const toggleSearchInput = () => {
     const newVisibility = !isSearchInputVisible;
     setIsSearchInputVisible(newVisibility);
-    if (!newVisibility && inputValue.trim()) {
-      setInputValue('');
+    if (!newVisibility && inputValue.trim()) { // If hiding and there was a search term
+      setInputValue(''); // Clear input
       const params = new URLSearchParams(searchParams.toString());
       params.delete('q');
-      router.push(`${pathname}?${params.toString()}`, { scroll: false });
+      if (isHomePage) {
+        router.push(`/?${params.toString()}`, { scroll: false });
+      }
+      // No push if not on homepage and clearing, as search is site-wide to homepage
     }
     if (newVisibility) {
       setTimeout(() => searchInputRef.current?.focus(), 0);
     }
   };
 
-  const handleSortChange = useCallback((value: string) => {
+ const handleSortChange = useCallback((value: string) => {
     const newSortOption = value as ArticleSortOption;
-    setCurrentSortOption(newSortOption); // Update local state for immediate UI feedback if needed
+    setCurrentSortOption(newSortOption);
     const params = new URLSearchParams(searchParams.toString());
     params.set('sort', newSortOption);
-    router.push(`${pathname}?${params.toString()}`, { scroll: false });
-  }, [router, pathname, searchParams]);
+    // Sort applies to homepage
+    router.push(`/?${params.toString()}`, { scroll: false });
+  }, [router, searchParams]);
+
+
+  const sortButton = (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-9 w-9"
+      disabled={!!activeSearchQuery}
+      aria-label="Sort articles"
+    >
+      <ListFilter className="w-5 h-5" />
+    </Button>
+  );
 
   const sortDropdownContent = (
     <DropdownMenuContent align="end" className="w-[200px]">
@@ -131,17 +168,6 @@ export default function Header() {
     </DropdownMenuContent>
   );
 
-  const sortButton = (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="h-9 w-9"
-      disabled={!!activeSearchQuery}
-      aria-label="Sort articles"
-    >
-      <ListFilter className="w-5 h-5" />
-    </Button>
-  );
 
   return (
     <header className="bg-card border-b border-border sticky top-0 z-50">
@@ -162,6 +188,7 @@ export default function Header() {
                   className="w-36 sm:w-48 md:w-64 h-9"
                   value={inputValue}
                   onChange={handleSearchInputChange}
+                  aria-label="Search articles input"
                 />
               </form>
             )}
@@ -197,11 +224,11 @@ export default function Header() {
                 </TooltipProvider>
               ) : (
                 // SSR / initial client render: DropdownMenu without Tooltip
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    {sortButton}
-                  </DropdownMenuTrigger>
-                  {sortDropdownContent}
+                 <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        {sortButton}
+                    </DropdownMenuTrigger>
+                    {sortDropdownContent}
                 </DropdownMenu>
               )
             )}
