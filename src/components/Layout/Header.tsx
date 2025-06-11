@@ -23,6 +23,7 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import type { ArticleSortOption } from '@/lib/articlesStore';
+import { ThemeToggle } from '@/components/ThemeToggle'; // Import the new ThemeToggle component
 
 const DEBOUNCE_DELAY = 500;
 
@@ -43,7 +44,7 @@ export default function Header() {
     setIsClient(true);
   }, []);
 
-  const isAdminPage = pathname.startsWith('/admin');
+  const isAdminPage = pathname.startsWith(`/${process.env.NEXT_PUBLIC_ADMIN_SECRET_URL_SEGMENT}`);
   const isHomePage = pathname === '/';
   const activeSearchQuery = searchParams.get('q');
 
@@ -193,8 +194,8 @@ export default function Header() {
               {isSearchInputVisible ? <X className="w-5 h-5" /> : <Search className="w-5 h-5" />}
             </Button>
 
-            {isHomePage && (
-              isClient ? (
+            {isHomePage &&
+              (isClient ? (
                 <TooltipProvider>
                   <Tooltip open={!!activeSearchQuery ? false : undefined}>
                     <TooltipTrigger asChild>
@@ -220,9 +221,8 @@ export default function Header() {
                     </DropdownMenuTrigger>
                     {sortDropdownContent}
                 </DropdownMenu>
-              )
-            )}
-            {/* Admin button removed from here */}
+              ))}
+            <ThemeToggle /> {/* Add the ThemeToggle component here */}
           </nav>
         )}
       </div>
