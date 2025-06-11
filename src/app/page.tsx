@@ -2,9 +2,9 @@
 "use client";
 
 import ArticleCard from '@/components/ArticleCard';
-import type { Article, PaginatedArticles } from '@/types';
+import type { Article, PaginatedArticles, ArticleSortOption } from '@/types';
 import { useArticles } from '@/contexts/ArticleContext';
-import { getArticles as fetchArticlesFromDb, type ArticleSortOption } from '@/lib/articlesStore';
+import { getArticles as fetchArticlesFromDb } from '@/lib/articlesStore';
 import { ARTICLES_PER_PAGE_HOME } from '@/config/constants';
 import { useSearchParams } from 'next/navigation';
 import React, { useEffect, useState, useCallback } from 'react';
@@ -39,17 +39,20 @@ export default function HomePage() {
   useEffect(() => {
     const sortFromUrl = sortQuery || 'newest';
     setCurrentSortOption(sortFromUrl);
-    // If not searching, and sort order changes, reload home articles
     if (!searchQuery && sortFromUrl !== currentSortOption) {
       loadHomeArticles(1, false, sortFromUrl);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sortQuery, searchQuery]); // Removed currentSortOption to prevent loop with loadHomeArticles
+  }, [sortQuery, searchQuery]); 
 
   const loadHomeArticles = useCallback(async (page: number, append = false, sortOrder = currentSortOption) => {
     console.log(`HomePage: loadHomeArticles for page ${page}, sort: ${sortOrder}, append: ${append}`);
-    if (page === 1 && !append) setHomeIsLoading(true);
-    else setHomeIsLoadingMore(true);
+    if (page === 1 && !append) {
+      setHomeIsLoading(true);
+      setSearchStatusMessage("Loading articles...");
+    } else {
+      setHomeIsLoadingMore(true);
+    }
 
     try {
       const result: PaginatedArticles = await fetchArticlesFromDb(ARTICLES_PER_PAGE_HOME, (page - 1) * ARTICLES_PER_PAGE_HOME, sortOrder);
@@ -60,13 +63,15 @@ export default function HomePage() {
       }
       setHomeTotalPages(result.totalPages);
       setHomeCurrentPage(result.currentPage);
+      if (page === 1 && !append) setSearchStatusMessage(`Showing ${result.articles.length} of ${result.totalCount} articles.`);
     } catch (error) {
       console.error("Failed to load home articles:", error);
+      if (page === 1 && !append) setSearchStatusMessage("Error loading articles.");
     } finally {
       if (page === 1 && !append) setHomeIsLoading(false);
       else setHomeIsLoadingMore(false);
     }
-  }, [currentSortOption]); // currentSortOption is a dependency here
+  }, [currentSortOption]); 
 
   useEffect(() => {
     if (!searchQuery) {
@@ -74,7 +79,7 @@ export default function HomePage() {
       loadHomeArticles(1, false, currentSortOption);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, currentSortOption, loadHomeArticles]); // loadHomeArticles added due to its dependency on currentSortOption
+  }, [searchQuery, currentSortOption, loadHomeArticles]);
 
   const paginateAISearchResults = useCallback((fullResults: Article[], page: number) => {
     const start = (page - 1) * ARTICLES_PER_PAGE_HOME;
@@ -101,7 +106,7 @@ export default function HomePage() {
               title: a.title,
               content: a.excerpt || a.content.substring(0,500),
               tags: a.tags,
-              slug: a.slug, // Ensure slug and other necessary fields are passed
+              slug: a.slug, 
               created_at: a.created_at,
               author: a.author,
               image_url: a.image_url,
@@ -135,15 +140,14 @@ export default function HomePage() {
 
         } finally {
           setIsAISearchLoading(false);
-          if (aiSearchResults.length === 0 && !isAISearchLoading) { // Check after search is done
-             setSearchStatusMessage(`No articles found for "${searchQuery}".`);
-          }
+          // Check if search is done and no results were found BEFORE setting the message
+          // This state will be derived from aiSearchResults.length after performSearch completes
         }
       } else if (!searchQuery) {
         setAiSearchResults([]);
         setDisplayedSearchResults([]);
         setSearchError(null);
-        setSearchStatusMessage(null);
+        setSearchStatusMessage(null); // Clear search message when not searching
       }
     };
 
@@ -157,10 +161,17 @@ export default function HomePage() {
        setAiSearchResults([]);
        setDisplayedSearchResults([]);
        setSearchError(null);
-       setSearchStatusMessage(null);
+       setSearchStatusMessage(null); 
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, allArticlesForSearch, isContextLoading, paginateAISearchResults]);
+
+  // Effect to update message when search results are empty after search completion
+  useEffect(() => {
+    if (searchQuery && !isAISearchLoading && aiSearchResults.length === 0) {
+        setSearchStatusMessage(`No articles found for "${searchQuery}".`);
+    }
+  }, [searchQuery, isAISearchLoading, aiSearchResults.length]);
 
 
   const handleLoadMoreHome = () => {
@@ -191,19 +202,19 @@ export default function HomePage() {
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="mt-4 text-lg text-muted-foreground font-headline" role="status" aria-live="polite" aria-atomic="true">
-          {searchQuery && isAISearchLoading ? `Searching for "${searchQuery}"...` : 'Loading articles...'}
+          {searchStatusMessage || 'Loading articles...'}
         </p>
       </div>
     );
   }
-
+  
   if (searchQuery && articlesToDisplay.length === 0 && !isAISearchLoading && !isContextLoading) {
     return (
       <div className="text-center py-10">
         <SearchX className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
-        <h2 className="text-2xl font-semibold mb-2 font-headline">No Articles Found</h2>
+        <h1 className="text-2xl font-semibold mb-2 font-headline">No Articles Found</h1>
         <div role="status" aria-live="polite" aria-atomic="true" className="text-muted-foreground mb-6">
-           Your search for "{searchQuery}" did not match any articles. Try a different query or explore all articles.
+           {searchStatusMessage || `Your search for "${searchQuery}" did not match any articles. Try a different query or explore all articles.`}
         </div>
         <Button asChild variant="outline">
           <Link href="/">View All Articles</Link>
@@ -214,7 +225,7 @@ export default function HomePage() {
 
   return (
     <div className="space-y-8">
-       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+       <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
         {searchStatusMessage}
       </div>
       {searchQuery && (
@@ -226,7 +237,7 @@ export default function HomePage() {
               <p className="text-sm text-muted-foreground">Displaying articles based on keyword match.</p>
             </div>
           )}
-           {!searchError && !isAISearchLoading && <p className="text-muted-foreground mt-1">Found {aiSearchResults.length} articles.</p>}
+           {!searchError && !isAISearchLoading && <p className="text-muted-foreground mt-1">{aiSearchResults.length} {aiSearchResults.length === 1 ? "article" : "articles"} found.</p>}
         </div>
       )}
 
@@ -255,11 +266,9 @@ export default function HomePage() {
           <NewspaperIcon className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
           <h2 className="text-2xl font-semibold mb-2 font-headline">No Articles Yet</h2>
           <p className="text-muted-foreground mb-6">
-            Check back soon for new content or visit the admin dashboard to create articles.
+            Check back soon for new content!
           </p>
-          <Button asChild>
-            <Link href="/admin">Go to Admin</Link>
-          </Button>
+          {/* Removed "Go to Admin" button from here */}
         </div>
       )}
 

@@ -54,13 +54,9 @@ export default function Header() {
     const sortFromUrl = (searchParams.get('sort') as ArticleSortOption) || 'newest';
     setCurrentSortOption(sortFromUrl);
 
-    // Show search if there's a query, not on admin, and it's not already visible
     if (queryFromUrl && !isAdminPage && !isSearchInputVisible) {
       setIsSearchInputVisible(true);
     }
-    // If no query, not admin, and search is visible, hide it (unless user explicitly opened it)
-    // This part might be tricky if we want to preserve explicit open state.
-    // For now, let's assume URL drives visibility primarily for initial load.
   }, [searchParams, isAdminPage, isSearchInputVisible]);
 
 
@@ -78,11 +74,9 @@ export default function Header() {
       } else {
         params.delete('q');
       }
-       // Only push to homepage for header search
       if (isHomePage) {
         router.push(`/?${params.toString()}`, { scroll: false });
       } else {
-        // If on another page like /articles/[slug], a search should redirect to homepage
         router.push(`/?${params.toString()}`);
       }
     }, DEBOUNCE_DELAY);
@@ -119,14 +113,13 @@ export default function Header() {
   const toggleSearchInput = () => {
     const newVisibility = !isSearchInputVisible;
     setIsSearchInputVisible(newVisibility);
-    if (!newVisibility && inputValue.trim()) { // If hiding and there was a search term
-      setInputValue(''); // Clear input
+    if (!newVisibility && inputValue.trim()) { 
+      setInputValue(''); 
       const params = new URLSearchParams(searchParams.toString());
       params.delete('q');
       if (isHomePage) {
         router.push(`/?${params.toString()}`, { scroll: false });
       }
-      // No push if not on homepage and clearing, as search is site-wide to homepage
     }
     if (newVisibility) {
       setTimeout(() => searchInputRef.current?.focus(), 0);
@@ -138,10 +131,8 @@ export default function Header() {
     setCurrentSortOption(newSortOption);
     const params = new URLSearchParams(searchParams.toString());
     params.set('sort', newSortOption);
-    // Sort applies to homepage
     router.push(`/?${params.toString()}`, { scroll: false });
   }, [router, searchParams]);
-
 
   const sortButton = (
     <Button
@@ -168,11 +159,10 @@ export default function Header() {
     </DropdownMenuContent>
   );
 
-
   return (
     <header className="bg-card border-b border-border sticky top-0 z-50">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-        <Link href={isAdminPage && isHomePage ? "/" : (isAdminPage ? "/admin" : "/")} className="flex items-center gap-2 text-primary hover:opacity-80 transition-opacity">
+        <Link href="/" className="flex items-center gap-2 text-primary hover:opacity-80 transition-opacity">
           <Cloud className="w-8 h-8" />
           <h1 className="text-2xl font-headline font-semibold">Cloud Journal</h1>
         </Link>
@@ -232,10 +222,7 @@ export default function Header() {
                 </DropdownMenu>
               )
             )}
-
-            <Link href="/admin">
-              <Button variant="outline" size="sm" className="text-xs sm:text-sm h-9 px-2 md:px-3">Admin</Button>
-            </Link>
+            {/* Admin button removed from here */}
           </nav>
         )}
       </div>
