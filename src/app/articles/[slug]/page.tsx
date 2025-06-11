@@ -180,12 +180,17 @@ export default function ArticlePage() {
             <span>{totalComments} Comments</span>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div className="flex flex-wrap gap-2 mb-6 items-center">
           <Tag className="w-5 h-5 mr-1 text-muted-foreground self-center" />
           {article.tags.map((tag) => (
-            <Badge key={tag} variant="secondary" className="text-sm">
-              {tag}
-            </Badge>
+            <Link key={tag} href={`/?q=${encodeURIComponent(tag)}`} passHref>
+              <Badge
+                variant="secondary"
+                className="text-sm hover:bg-accent hover:text-accent-foreground cursor-pointer"
+              >
+                {tag}
+              </Badge>
+            </Link>
           ))}
         </div>
         {article.image_url && (
@@ -263,7 +268,6 @@ export default function ArticlePage() {
         )}
       </section>
       
-      {/* Removed "Edit this Article (Admin)" button from here */}
     </article>
   );
 }
