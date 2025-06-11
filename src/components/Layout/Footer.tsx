@@ -9,7 +9,7 @@ export default function Footer() {
           &copy; {new Date().getFullYear()} Cloud Journal. All rights reserved.
         </p>
         <p className="text-xs text-muted-foreground mt-1">
-          Inspired by modern tech blogs. Built with Next.js and Tailwind CSS.
+          Dedicated to insights in cloud technology and software development.
         </p>
         {/* The unsubscribe link below is now removed as per user request */}
         {/*
