@@ -1,11 +1,11 @@
 
-"use client"; // Make this a client component to use useSession and signOut
+"use client"; 
 
 import { ShieldCheck, LogOut } from 'lucide-react';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation'; // For redirect after signout
+import { useRouter } from 'next/navigation'; 
 
 export default function AdminLayout({
   children,
@@ -17,8 +17,8 @@ export default function AdminLayout({
   const adminBaseUrl = `/${process.env.NEXT_PUBLIC_ADMIN_SECRET_URL_SEGMENT || 'admin'}`;
 
   const handleSignOut = async () => {
-    await signOut({ redirect: false, callbackUrl: '/' }); // Redirect to home after sign out
-    router.push('/'); // Force redirect client-side as NextAuth middleware might not run for this
+    await signOut({ redirect: false, callbackUrl: '/' }); 
+    router.push('/'); 
   };
 
   return (

@@ -3,16 +3,14 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 
 export async function middleware(request: NextRequest) {
-  const { pathname, origin } = request.nextUrl;
+  const { pathname, origin, search } = request.nextUrl; // Added search
 
   const adminSecretSegment = process.env.NEXT_PUBLIC_ADMIN_SECRET_URL_SEGMENT;
   const nextAuthSecret = process.env.NEXTAUTH_SECRET;
 
   if (!adminSecretSegment || !nextAuthSecret) {
     console.error('Middleware: Security environment variables (ADMIN_SECRET_URL_SEGMENT or NEXTAUTH_SECRET) are not set!');
-    // Return 500 or allow non-admin access if this happens in prod.
-    // For now, we will just show a generic error to avoid breaking non-admin parts of the site.
-    if (pathname.startsWith(`/${adminSecretSegment}`)) {
+    if (pathname.startsWith(`/${adminSecretSegment || 'default-admin-placeholder'}`)) { // Added default placeholder to avoid breaking if undefined
          return new Response('Server configuration error.', { status: 500 });
     }
     return NextResponse.next();
@@ -26,13 +24,27 @@ export async function middleware(request: NextRequest) {
 
   const physicalAdminPathPattern = /^\/secure-admin-zone(\/.*)?$/;
 
-  // 1. Block direct access to the physical admin directory
+  // 1. Block direct access to the physical admin directory (except for login rewrite)
   if (physicalAdminPathPattern.test(pathname) && pathname !== '/secure-admin-zone/login') {
-    // Allow access to physical login page only if rewritten by middleware
-    const isInternalRewrite = request.headers.get('x-middleware-rewrite');
-    if (!isInternalRewrite || !isInternalRewrite.includes('/secure-admin-zone/login')) {
-         console.log(`Middleware: Denying direct access to ${pathname}`);
-         return new Response('Not Found', { status: 404 });
+    const isInternalRewriteToLogin = request.headers.get('x-middleware-rewrite')?.includes('/secure-admin-zone/login');
+    const isInternalRewriteToAdmin = request.headers.get('x-middleware-rewrite')?.includes('/secure-admin-zone');
+    
+    // Allow if it's a rewrite to an admin page (which implies session was checked)
+    // OR if it's a rewrite specifically to the login page.
+    if (isInternalRewriteToAdmin && !isInternalRewriteToLogin) {
+        // This case is tricky, usually means it's a rewrite to a protected admin page
+        // The primary check is in the isAdminPath block below.
+        // If someone tries to access /secure-admin-zone directly, it's blocked.
+    } else if (!isInternalRewriteToLogin && pathname === '/secure-admin-zone/login') {
+        // This is someone trying to access the physical login page directly,
+        // which is okay if middleware then rewrites them to the secret login page
+        // or they came from the secret login page.
+        // But mostly, we want to redirect them to the *secret* login page.
+        return NextResponse.redirect(new URL(`/${adminSecretSegment}/login`, origin));
+    }
+     else if (!isInternalRewriteToLogin && !isInternalRewriteToAdmin) {
+        console.log(`Middleware: Denying direct access to physical admin path ${pathname}`);
+        return new Response('Not Found', { status: 404 });
     }
   }
   
@@ -45,11 +57,16 @@ export async function middleware(request: NextRequest) {
   if (isAdminPath) {
     if (isLoginPage) {
       if (session) {
-        // If authenticated and trying to access login page, redirect to admin dashboard
+        // If authenticated and trying to access login page, redirect to admin dashboard or callbackUrl
+        const callbackUrl = request.nextUrl.searchParams.get('callbackUrl');
+        if (callbackUrl && callbackUrl.startsWith(origin)) {
+             return NextResponse.redirect(new URL(callbackUrl, origin));
+        }
         return NextResponse.redirect(new URL(`/${adminSecretSegment}`, origin));
       }
       // Not authenticated, on login page: rewrite to physical login page component
-      const newLoginUrl = new URL(`/secure-admin-zone/login${request.nextUrl.search}`, origin);
+      // Pass existing query params (like callbackUrl) to the physical login page.
+      const newLoginUrl = new URL(`/secure-admin-zone/login${search}`, origin);
       return NextResponse.rewrite(newLoginUrl);
     }
 
@@ -58,14 +75,15 @@ export async function middleware(request: NextRequest) {
       // Not authenticated, redirect to the secret login page
       const loginUrl = new URL(`/${adminSecretSegment}/login`, origin);
       // Preserve returnTo query param if it exists, or set it to the current path
-      const redirectTo = pathname.startsWith(`/${adminSecretSegment}`) ? pathname : `/${adminSecretSegment}`;
-      loginUrl.searchParams.set('callbackUrl', `${origin}${redirectTo}`);
+      const redirectTo = `${origin}${pathname}${search}`; // Include existing search params
+      loginUrl.searchParams.set('callbackUrl', redirectTo);
       return NextResponse.redirect(loginUrl);
     }
 
     // Authenticated: rewrite to the physical admin path
+    // Pass existing query params to the physical admin page.
     const newPath = pathname.replace(`/${adminSecretSegment}`, '/secure-admin-zone');
-    return NextResponse.rewrite(new URL(newPath, origin));
+    return NextResponse.rewrite(new URL(`${newPath}${search}`, origin));
   }
 
   return NextResponse.next();
@@ -73,15 +91,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - Specific API routes if not handled by the general /api/auth rule.
-     *
-     * The /api/auth routes are handled by the middleware check above.
-     */
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };

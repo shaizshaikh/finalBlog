@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { signIn, useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation'; // Added useSearchParams
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -22,6 +22,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams(); // For callbackUrl
   const { data: session, status } = useSession();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,11 +35,16 @@ export default function AdminLoginPage() {
 
   useEffect(() => {
     if (status === "authenticated" && adminSecretSegment) {
-      router.replace(`/${adminSecretSegment}`);
+      const callbackUrl = searchParams.get('callbackUrl');
+      if (callbackUrl && callbackUrl.startsWith(window.location.origin)) {
+        router.replace(callbackUrl);
+      } else {
+        router.replace(`/${adminSecretSegment}`);
+      }
     }
-  }, [status, router, adminSecretSegment]);
+  }, [status, router, adminSecretSegment, searchParams]);
 
-  if (status === "loading" || status === "authenticated") {
+  if (status === "loading" || (status === "authenticated" && !searchParams.get('callbackUrl'))) { // Show loader if auth status is loading OR if authenticated and no specific callback (meaning initial redirect is happening)
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -55,24 +61,32 @@ export default function AdminLoginPage() {
       );
   }
 
-
   const onSubmit = async (data: LoginFormValues) => {
     setLoading(true);
     setError(null);
     try {
+      const callbackUrlFromParams = searchParams.get('callbackUrl');
       const result = await signIn('credentials', {
-        redirect: false, // We'll handle redirect manually
+        redirect: false, 
         username: data.username,
         password: data.password,
+        callbackUrl: callbackUrlFromParams || `/${adminSecretSegment}`, // Use callbackUrl or default to admin dashboard
       });
 
       if (result?.error) {
         setError(result.error === "CredentialsSignin" ? "Invalid username or password." : "Login failed. Please try again.");
         console.error("Sign-in error:", result.error);
-      } else if (result?.ok) {
-        // Successful sign in, router.replace will be triggered by useEffect
-        router.replace(`/${adminSecretSegment}`);
-      } else {
+      } else if (result?.ok && result.url) {
+        // NextAuth handles the redirect if successful when redirect: true, 
+        // but since we set redirect: false, useEffect will handle it.
+        // We can force a router.replace here if useEffect seems slow or doesn't catch specific callbackUrl cases.
+        // For now, let useEffect manage the redirect based on session status.
+        // router.replace(result.url); // NextAuth would have provided the correct redirect URL
+      } else if (result?.ok && !result.url) {
+        // This case might happen if callbackUrl was not correctly passed or if it's the same page
+        // The useEffect will handle redirecting to the admin dashboard.
+      }
+       else {
         setError("An unexpected error occurred during sign-in.");
       }
     } catch (e) {
