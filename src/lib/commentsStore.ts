@@ -12,21 +12,48 @@ export interface AddCommentData {
 
 export const addCommentToDb = async (commentData: AddCommentData): Promise<Comment> => {
   const { article_id, author_name, content } = commentData;
-  console.log(`commentsStore: Adding comment for article_id ${article_id}`);
+  console.log(`commentsStore: Adding/Updating comment for article_id ${article_id} by author "${author_name}"`);
+
   try {
-    const result = await pool.query<Comment>(
-      `INSERT INTO comments (article_id, author_name, content, is_approved, created_at, likes, dislikes)
-       VALUES ($1, $2, $3, TRUE, CURRENT_TIMESTAMP, 0, 0)
-       RETURNING *`,
-      [article_id, author_name, content]
+    // Check if a comment by this author already exists for this article
+    const existingCommentQuery = await pool.query<{ id: string }>(
+      'SELECT id FROM comments WHERE article_id = $1 AND author_name = $2',
+      [article_id, author_name]
     );
-    if (result.rows.length === 0) {
-      throw new Error('Comment creation failed, no rows returned.');
+
+    if (existingCommentQuery.rows.length > 0) {
+      // Comment exists, update it
+      const existingCommentId = existingCommentQuery.rows[0].id;
+      console.log(`commentsStore: Existing comment found (ID: ${existingCommentId}). Updating content.`);
+      const result = await pool.query<Comment>(
+        `UPDATE comments 
+         SET content = $1, created_at = CURRENT_TIMESTAMP, likes = 0, dislikes = 0, is_approved = TRUE
+         WHERE id = $2
+         RETURNING *`,
+        [content, existingCommentId]
+      );
+      if (result.rows.length === 0) {
+        throw new Error('Comment update failed, no rows returned.');
+      }
+      console.log(`commentsStore: Comment updated (ID: ${result.rows[0].id})`);
+      return result.rows[0];
+    } else {
+      // Comment does not exist, insert a new one
+      console.log(`commentsStore: No existing comment found for author "${author_name}" on article ${article_id}. Inserting new comment.`);
+      const result = await pool.query<Comment>(
+        `INSERT INTO comments (article_id, author_name, content, is_approved, created_at, likes, dislikes)
+         VALUES ($1, $2, $3, TRUE, CURRENT_TIMESTAMP, 0, 0)
+         RETURNING *`,
+        [article_id, author_name, content]
+      );
+      if (result.rows.length === 0) {
+        throw new Error('Comment creation failed, no rows returned.');
+      }
+      console.log(`commentsStore: New comment added (ID: ${result.rows[0].id})`);
+      return result.rows[0];
     }
-    console.log(`commentsStore: Comment added with id ${result.rows[0].id}`);
-    return result.rows[0];
   } catch (error) {
-    console.error('commentsStore: Error adding comment to DB:', error);
+    console.error('commentsStore: Error adding/updating comment in DB:', error);
     throw error;
   }
 };

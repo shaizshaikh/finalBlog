@@ -2,7 +2,7 @@
 import type { Article } from '@/types';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'; // Removed CardTitle import
 import { Badge } from '@/components/ui/badge';
 import { CalendarDays, UserCircle } from 'lucide-react';
 
@@ -44,9 +44,11 @@ export default function ArticleCard({ article }: ArticleCardProps) {
 
       <div className={`flex flex-col flex-grow ${article.image_url ? 'md:w-2/3 lg:w-3/4 xl:w-4/5' : 'w-full'}`}>
         <CardHeader className="pt-4 md:pt-6 pb-2">
-          <Link href={articleLink} className="hover:text-primary transition-colors">
-            <CardTitle className="text-xl font-headline mb-1 leading-tight">{article.title}</CardTitle>
-          </Link>
+          <h2 className="text-xl font-headline mb-1 leading-tight"> {/* Changed from CardTitle to h2 */}
+            <Link href={articleLink} className="hover:text-primary transition-colors">
+              {article.title}
+            </Link>
+          </h2>
           <div className="text-xs text-muted-foreground flex items-center flex-wrap gap-x-3 gap-y-1">
             <div className="flex items-center">
               <UserCircle className="w-3.5 h-3.5 mr-1" />
@@ -83,4 +85,3 @@ export default function ArticleCard({ article }: ArticleCardProps) {
     </Card>
   );
 }
-
