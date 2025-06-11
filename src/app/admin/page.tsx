@@ -6,7 +6,9 @@ import { useArticles } from '@/contexts/ArticleContext';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PlusCircle, Edit, Trash2, Loader2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PlusCircle, Edit, Trash2, Loader2, FilterX } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -20,14 +22,16 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';
-import React from 'react';
+import React, { useState, useMemo } from 'react';
+
+type SortOption = "newest" | "oldest" | "title-asc" | "title-desc";
 
 export default function AdminDashboardPage() {
   const { 
     articles, 
     deleteArticle, 
-    isLoading: isContextLoading, // Overall context loading (initial load)
-    isLoadingMore, // Context loading more items
+    isLoading: isContextLoading,
+    isLoadingMore,
     fetchPage,
     currentPage,
     totalPages,
@@ -35,6 +39,8 @@ export default function AdminDashboardPage() {
   } = useArticles();
   const { toast } = useToast();
 
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortOption, setSortOption] = useState<SortOption>("newest");
 
   const handleDelete = async (id: string, title: string) => {
     try {
@@ -45,7 +51,37 @@ export default function AdminDashboardPage() {
     }
   };
   
-  // Show main loader if context is loading and there are no articles yet (initial state)
+  const filteredAndSortedArticles = useMemo(() => {
+    let processedArticles = [...articles];
+
+    // Filter by search term
+    if (searchTerm.trim() !== "") {
+      processedArticles = processedArticles.filter(article =>
+        article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        article.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        article.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+
+    // Sort
+    switch (sortOption) {
+      case "newest":
+        processedArticles.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        break;
+      case "oldest":
+        processedArticles.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        break;
+      case "title-asc":
+        processedArticles.sort((a, b) => a.title.localeCompare(b.title));
+        break;
+      case "title-desc":
+        processedArticles.sort((a, b) => b.title.localeCompare(a.title));
+        break;
+    }
+    return processedArticles;
+  }, [articles, searchTerm, sortOption]);
+
+
   if (isContextLoading && articles.length === 0) { 
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-300px)]">
@@ -55,10 +91,9 @@ export default function AdminDashboardPage() {
     );
   }
 
-
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
         <h2 className="text-3xl font-bold font-headline">Manage Articles ({totalArticles})</h2>
         <Button asChild>
           <Link href="/admin/create">
@@ -67,23 +102,47 @@ export default function AdminDashboardPage() {
         </Button>
       </div>
 
-      {/* Show "no articles" message if not loading and no articles exist */}
+      <div className="flex flex-col sm:flex-row gap-4 items-center p-4 bg-card border rounded-lg shadow-sm">
+        <Input 
+          placeholder="Search articles (title, author, tags)..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="flex-grow"
+        />
+        <Select value={sortOption} onValueChange={(value) => setSortOption(value as SortOption)}>
+          <SelectTrigger className="w-full sm:w-[200px]">
+            <SelectValue placeholder="Sort by..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="newest">Sort: Newest First</SelectItem>
+            <SelectItem value="oldest">Sort: Oldest First</SelectItem>
+            <SelectItem value="title-asc">Sort: Title (A-Z)</SelectItem>
+            <SelectItem value="title-desc">Sort: Title (Z-A)</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {!isContextLoading && articles.length === 0 ? ( 
         <p className="text-muted-foreground text-center py-10">No articles yet. Start by creating one!</p>
+      ) : filteredAndSortedArticles.length === 0 && searchTerm ? (
+        <div className="text-center py-10">
+            <FilterX className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-lg text-muted-foreground">No articles match your search criteria.</p>
+        </div>
       ) : (
-        <div className="border rounded-lg shadow-sm">
+        <div className="border rounded-lg shadow-sm overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[40%]">Title</TableHead>
-                <TableHead>Author</TableHead>
-                <TableHead>Tags</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="min-w-[250px] w-[40%]">Title</TableHead>
+                <TableHead className="min-w-[120px]">Author</TableHead>
+                <TableHead className="min-w-[150px]">Tags</TableHead>
+                <TableHead className="min-w-[100px]">Date</TableHead>
+                <TableHead className="text-right min-w-[100px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {articles.map((article) => (
+              {filteredAndSortedArticles.map((article) => (
                 <TableRow key={article.id}>
                   <TableCell className="font-medium">{article.title}</TableCell>
                   <TableCell>{article.author}</TableCell>
@@ -130,8 +189,7 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {/* Load More Button */}
-      {!isContextLoading && articles.length > 0 && currentPage < totalPages && (
+      {!isContextLoading && articles.length > 0 && currentPage < totalPages && !searchTerm && (
         <div className="text-center mt-8">
           <Button 
             onClick={() => fetchPage(currentPage + 1)} 
@@ -144,6 +202,12 @@ export default function AdminDashboardPage() {
             {isLoadingMore ? 'Loading...' : 'Load More Articles'}
           </Button>
         </div>
+      )}
+      {searchTerm && articles.length > 0 && filteredAndSortedArticles.length > 0 && currentPage < totalPages && (
+         <p className="text-sm text-muted-foreground text-center mt-4">
+            Searching and sorting is applied to currently loaded articles.
+            <Button variant="link" onClick={() => setSearchTerm("")} className="p-1">Clear search</Button> to see all articles and load more.
+        </p>
       )}
     </div>
   );
