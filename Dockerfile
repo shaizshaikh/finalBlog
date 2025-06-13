@@ -1,8 +1,8 @@
-# 1. Base Image for Dependencies & Build
+
+# 1. Dependencies Stage: Install dependencies
 FROM node:20-alpine AS deps
 WORKDIR /app
-
-# Install dependencies based on package-lock.json
+RUN apk add --no-cache libc6-compat
 COPY package.json package-lock.json* ./
 RUN npm ci
 
@@ -12,13 +12,15 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Environment variables for build time (if any specific ones were needed for client-side NEXT_PUBLIC_ bundling)
-# However, with RuntimeConfigContext, these are primarily runtime, not build-time critical for the Docker image itself.
-ENV NODE_ENV=production
-# ENV NEXT_PUBLIC_ADMIN_SECRET_URL_SEGMENT=${NEXT_PUBLIC_ADMIN_SECRET_URL_SEGMENT} # Example if needed at build time
-# ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL} # Example if needed at build time
+# Set NEXT_PUBLIC_ variables as build arguments if you want to bake them in.
+# However, for runtime flexibility of ADMIN_SECRET_URL_SEGMENT and BASE_URL,
+# we rely on RuntimeConfigContext which reads from server's runtime process.env.
+# So, these ARGs are not strictly necessary here for those two variables if passed at runtime.
+# ARG NEXT_PUBLIC_ADMIN_SECRET_URL_SEGMENT
+# ARG NEXT_PUBLIC_BASE_URL
 
-# Disable Next.js telemetry during build
+# ENV NEXT_PUBLIC_ADMIN_SECRET_URL_SEGMENT=${NEXT_PUBLIC_ADMIN_SECRET_URL_SEGMENT}
+# ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 
 RUN npm run build
@@ -28,36 +30,35 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-# Disable Next.js telemetry in production runtime
 ENV NEXT_TELEMETRY_DISABLED=1
+# ENV NEXT_PUBLIC_ADMIN_SECRET_URL_SEGMENT (value will be injected at runtime)
+# ENV NEXT_PUBLIC_BASE_URL (value will be injected at runtime)
+# Other runtime environment variables (POSTGRES_URL, NEXTAUTH_SECRET, etc.) will also be injected here.
 
-# Create a non-root user for security
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
-# Copy the standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-# Copy public and static assets
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# public folder is not typically needed for standalone output unless you serve files directly from it outside of Next.js routing.
+# If you have files in `public` that need to be served, uncomment the next line.
+# COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 USER nextjs
 
 EXPOSE 9002
 
-# All other environment variables (DB_URL, NEXTAUTH_SECRET, etc.)
-# will be injected at runtime when starting the container.
-# These are just placeholders to indicate they are expected.
-ENV PORT=9002
-# ENV POSTGRES_URL=
-# ENV NEXTAUTH_URL=
-# ENV NEXTAUTH_SECRET=
-# ENV ADMIN_USERNAME=
-# ENV ADMIN_PASSWORD=
-# ENV ADMIN_SECRET_URL_SEGMENT=
-# ENV BASE_URL=
-# ENV GEMINI_API_KEY=
-# ENV GMAIL_USER=
-# ENV GMAIL_PASS=
+# All environment variables are expected to be set when the container runs
+# For example:
+# - POSTGRES_URL
+# - NEXTAUTH_URL (must be the public URL of your app)
+# - NEXTAUTH_SECRET
+# - ADMIN_USERNAME
+# - ADMIN_PASSWORD
+# - ADMIN_SECRET_URL_SEGMENT
+# - BASE_URL
+# - GEMINI_API_KEY
+# - GMAIL_USER
+# - GMAIL_PASS
 
 CMD ["node", "server.js"]

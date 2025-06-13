@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation'; 
 import { useRuntimeConfig } from '@/contexts/RuntimeConfigContext';
 
+export const dynamic = 'force-dynamic'; // Ensure this layout is dynamically rendered
+
 export default function AdminLayout({
   children,
 }: {

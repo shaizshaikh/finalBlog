@@ -13,6 +13,8 @@ import { Loader2, MailMinus, ShieldAlert } from 'lucide-react';
 import { unsubscribeFromNewsletter } from '@/app/actions/newsletterActions';
 import Link from 'next/link';
 
+export const dynamic = 'force-dynamic'; // Ensure this page is dynamically rendered
+
 const unsubscribeSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
 });
