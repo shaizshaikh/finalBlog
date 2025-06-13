@@ -71,8 +71,9 @@ export async function sendNewArticleNotification(article: Article) {
     console.warn('Gmail credentials not configured. Skipping new article notification.');
     return;
   }
-  if (!process.env.NEXT_PUBLIC_BASE_URL) {
-    console.warn('NEXT_PUBLIC_BASE_URL not configured. Skipping new article notification as links will be broken.');
+  // Use process.env.BASE_URL for server-side runtime configuration
+  if (!process.env.BASE_URL) {
+    console.warn('BASE_URL environment variable not configured. Skipping new article notification as links will be broken.');
     return;
   }
 
@@ -98,9 +99,9 @@ export async function sendNewArticleNotification(article: Article) {
       html: `
         <h1>${article.title}</h1>
         <p>${article.excerpt || article.content.substring(0, 200)}...</p>
-        <p><a href="${process.env.NEXT_PUBLIC_BASE_URL}/articles/${article.slug}">Read more</a></p>
+        <p><a href="${process.env.BASE_URL}/articles/${article.slug}">Read more</a></p>
         <hr>
-        <p><small>To unsubscribe, please visit <a href="${process.env.NEXT_PUBLIC_BASE_URL}/unsubscribe">our unsubscribe page</a>.</small></p>
+        <p><small>To unsubscribe, please visit <a href="${process.env.BASE_URL}/unsubscribe">our unsubscribe page</a>.</small></p>
       `,
     };
     return transporter.sendMail(mailOptions)
