@@ -5,21 +5,26 @@ import { getToken } from 'next-auth/jwt';
 export async function middleware(request: NextRequest) {
   const { pathname, origin, search } = request.nextUrl;
 
-  // Ensure ADMIN_SECRET_URL_SEGMENT is read from the environment.
-  // NEXT_PUBLIC_ prefix is not needed for server-side middleware access.
-  const adminSecretSegment = process.env.ADMIN_SECRET_URL_SEGMENT;
+  const adminSecretSegmentFromEnv = process.env.ADMIN_SECRET_URL_SEGMENT;
+  console.log(`[Middleware] START Request to: ${pathname}`);
+  console.log(`[Middleware] Read ADMIN_SECRET_URL_SEGMENT from env: "${adminSecretSegmentFromEnv}"`);
+
+  const adminSecretSegment = adminSecretSegmentFromEnv; // Use the value directly
   const nextAuthSecret = process.env.NEXTAUTH_SECRET;
 
   if (!adminSecretSegment || !nextAuthSecret) {
-    console.error('Middleware Critical Failure: ADMIN_SECRET_URL_SEGMENT or NEXTAUTH_SECRET environment variables are not set!');
-    // For paths that would have been admin paths, return a server error. Otherwise, let non-admin paths through.
-    if (pathname.startsWith(`/${adminSecretSegment || 'default-admin-placeholder'}`) || pathname.startsWith('/secure-admin-zone')) {
-         return new Response('Server configuration error: Admin area cannot be accessed.', { status: 500 });
+    console.error('[Middleware] CRITICAL FAILURE: ADMIN_SECRET_URL_SEGMENT or NEXTAUTH_SECRET environment variables are not set!');
+    if (pathname.startsWith(`/${adminSecretSegment || 'secure-admin-zone'}`)) { // Check against potential admin paths
+        return new Response('Server configuration error: Admin area cannot be accessed due to missing critical environment variables.', { status: 500 });
     }
-    return NextResponse.next();
+    return NextResponse.next(); // Allow non-admin paths if env vars for admin are missing
   }
 
   const session = await getToken({ req: request, secret: nextAuthSecret });
+  console.log(`[Middleware] Session object retrieved:`, session ? JSON.stringify(session, null, 2) : 'null');
+  if (session) {
+    console.log(`[Middleware] Session role: ${(session as any).role}`);
+  }
 
   const isRequestingSecretAdminPath = pathname.startsWith(`/${adminSecretSegment}`);
   const isRequestingPhysicalAdminPath = pathname.startsWith('/secure-admin-zone');
@@ -27,58 +32,52 @@ export async function middleware(request: NextRequest) {
 
   // 1. Allow NextAuth API calls to pass through
   if (isAuthApiRoute) {
+    console.log(`[Middleware] Allowing NextAuth API route: ${pathname}`);
     return NextResponse.next();
   }
 
   // 2. Block direct access to physical admin paths.
-  // Only rewrites from the secret path should reach these.
   if (isRequestingPhysicalAdminPath) {
-    console.warn(`Middleware: Denied direct access attempt to physical admin path: ${pathname}`);
-    // Respond with 404 by rewriting to a known not-found page or a generic 404 response.
-    // Using a rewrite to a custom _not-found is cleaner if you have one.
-    // For now, a simple 404 response.
-    return new Response('Not Found', { status: 404 });
+    console.warn(`[Middleware] Denied direct access attempt to physical admin path: ${pathname}. Responding with 404.`);
+    return new Response('Not Found - Direct access to this path is not allowed.', { status: 404 });
   }
 
   // 3. Handle requests to the secret admin path segment
   if (isRequestingSecretAdminPath) {
     const isSecretLoginPage = pathname === `/${adminSecretSegment}/login`;
+    console.log(`[Middleware] Secret admin path requested: ${pathname}. Is login page: ${isSecretLoginPage}`);
 
     if (isSecretLoginPage) {
       if (session && (session as any).role === 'admin') {
-        // User is authenticated and trying to access the login page, redirect them.
         const callbackUrl = request.nextUrl.searchParams.get('callbackUrl');
-        if (callbackUrl && callbackUrl.startsWith(origin) && !callbackUrl.includes(`/${adminSecretSegment}/login`)) {
-            console.log(`Middleware: Authenticated user on login, redirecting to callbackUrl: ${callbackUrl}`);
-            return NextResponse.redirect(new URL(callbackUrl, origin));
-        }
-        console.log(`Middleware: Authenticated user on login, redirecting to admin dashboard: /${adminSecretSegment}`);
-        return NextResponse.redirect(new URL(`/${adminSecretSegment}`, origin));
+        const redirectTarget = callbackUrl && callbackUrl.startsWith(origin) && !callbackUrl.includes(`/${adminSecretSegment}/login`)
+          ? callbackUrl
+          : `/${adminSecretSegment}`;
+        console.log(`[Middleware] Authenticated admin on login page, redirecting to: ${redirectTarget}`);
+        return NextResponse.redirect(new URL(redirectTarget, origin));
       }
-      // User is not authenticated or not an admin, show the login page.
-      // Rewrite to the physical login page component.
-      console.log(`Middleware: Unauthenticated user accessing secret login page, rewriting to /secure-admin-zone/login${search}`);
+      console.log(`[Middleware] Unauthenticated/non-admin access to secret login page, rewriting to /secure-admin-zone/login${search}`);
       return NextResponse.rewrite(new URL(`/secure-admin-zone/login${search}`, origin));
-    }
+    } else {
+      // This is for any OTHER page under the secret admin segment (e.g., dashboard, create, edit)
+      console.log(`[Middleware] Checking auth for non-login secret admin path: ${pathname}`);
+      if (!session || (session as any).role !== 'admin') {
+        const loginUrl = new URL(`/${adminSecretSegment}/login`, origin);
+        const redirectTo = `${origin}${pathname}${search}`;
+        loginUrl.searchParams.set('callbackUrl', redirectTo);
+        console.log(`[Middleware] Unauthenticated/non-admin access to "${pathname}", redirecting to login: ${loginUrl.toString()}`);
+        return NextResponse.redirect(loginUrl);
+      }
 
-    // For any other page under the secret admin segment
-    if (!session || (session as any).role !== 'admin') {
-      // User is not authenticated as admin, redirect to the secret login page.
-      // Preserve the intended destination as callbackUrl.
-      const loginUrl = new URL(`/${adminSecretSegment}/login`, origin);
-      const redirectTo = `${origin}${pathname}${search}`; // Include current query params
-      loginUrl.searchParams.set('callbackUrl', redirectTo);
-      console.log(`Middleware: Unauthenticated access to ${pathname}, redirecting to login: ${loginUrl.toString()}`);
-      return NextResponse.redirect(loginUrl);
+      // User IS authenticated as admin, rewrite to the corresponding physical path.
+      const newPhysicalPath = pathname.replace(`/${adminSecretSegment}`, '/secure-admin-zone');
+      console.log(`[Middleware] Authenticated admin access to "${pathname}", rewriting to "${newPhysicalPath}${search}"`);
+      return NextResponse.rewrite(new URL(`${newPhysicalPath}${search}`, origin));
     }
-
-    // User is authenticated as admin, rewrite to the corresponding physical path.
-    const newPhysicalPath = pathname.replace(`/${adminSecretSegment}`, '/secure-admin-zone');
-    console.log(`Middleware: Authenticated admin access to ${pathname}, rewriting to ${newPhysicalPath}${search}`);
-    return NextResponse.rewrite(new URL(`${newPhysicalPath}${search}`, origin));
   }
 
   // 4. For any other path not handled above, let the request proceed.
+  console.log(`[Middleware] Allowing non-admin path: ${pathname}`);
   return NextResponse.next();
 }
 
