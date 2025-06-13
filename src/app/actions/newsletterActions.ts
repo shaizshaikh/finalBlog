@@ -62,58 +62,70 @@ async function getActiveSubscribers(): Promise<string[]> {
     return result.rows.map(row => row.email);
   } catch (error) {
     console.error('Failed to fetch active subscribers:', error);
-    return [];
+    return []; // Return empty array on error to prevent further issues in sendNewArticleNotification
   }
 }
 
 export async function sendNewArticleNotification(article: Article) {
-  if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
-    console.warn('Gmail credentials not configured. Skipping new article notification.');
-    return;
-  }
-  // Use process.env.BASE_URL for server-side runtime configuration
-  if (!process.env.BASE_URL) {
-    console.warn('BASE_URL environment variable not configured. Skipping new article notification as links will be broken.');
-    return;
-  }
-
-  const subscribers = await getActiveSubscribers();
-  if (subscribers.length === 0) {
-    console.log('No active subscribers to notify.');
-    return;
-  }
-
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.GMAIL_USER,
-      pass: process.env.GMAIL_PASS, // Use App Password
-    },
-  });
-
-  const mailPromises = subscribers.map(email => {
-    const mailOptions = {
-      from: process.env.GMAIL_USER,
-      to: email,
-      subject: `New Article Published: ${article.title}`,
-      html: `
-        <h1>${article.title}</h1>
-        <p>${article.excerpt || article.content.substring(0, 200)}...</p>
-        <p><a href="${process.env.BASE_URL}/articles/${article.slug}">Read more</a></p>
-        <hr>
-        <p><small>To unsubscribe, please visit <a href="${process.env.BASE_URL}/unsubscribe">our unsubscribe page</a>.</small></p>
-      `,
-    };
-    return transporter.sendMail(mailOptions)
-      .then(() => console.log(`Notification sent to ${email}`))
-      .catch(err => console.error(`Failed to send notification to ${email}:`, err));
-  });
-
+  console.log(`Attempting to send new article notification for: "${article.title}"`);
   try {
-    await Promise.all(mailPromises);
-    console.log(`Successfully attempted to send new article notifications to ${subscribers.length} subscribers.`);
+    if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
+      console.warn('Gmail credentials not configured. Skipping new article notification.');
+      return;
+    }
+    if (!process.env.BASE_URL) {
+      console.warn('BASE_URL environment variable not configured. Skipping new article notification as links will be broken.');
+      return;
+    }
+
+    const subscribers = await getActiveSubscribers();
+    if (subscribers.length === 0) {
+      console.log('No active subscribers to notify for article:', article.title);
+      return;
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_PASS, // Use App Password
+      },
+    });
+
+    const mailPromises = subscribers.map(email => {
+      const mailOptions = {
+        from: process.env.GMAIL_USER,
+        to: email,
+        subject: `New Article Published: ${article.title}`,
+        html: `
+          <h1>${article.title}</h1>
+          <p>${article.excerpt || article.content.substring(0, 200)}...</p>
+          <p><a href="${process.env.BASE_URL}/articles/${article.slug}">Read more</a></p>
+          <hr>
+          <p><small>To unsubscribe, please visit <a href="${process.env.BASE_URL}/unsubscribe">our unsubscribe page</a>.</small></p>
+        `,
+      };
+      return transporter.sendMail(mailOptions)
+        .then(() => console.log(`Notification sent to ${email} for article "${article.title}"`))
+        .catch(err => console.error(`Failed to send notification to ${email} for article "${article.title}":`, err)); // Catch per-email errors
+    });
+
+    // Using Promise.allSettled to ensure all email sending attempts are made, regardless of individual failures.
+    const results = await Promise.allSettled(mailPromises);
+    
+    let sentCount = 0;
+    results.forEach(result => {
+      if (result.status === 'fulfilled') {
+        sentCount++;
+      }
+    });
+    console.log(`Successfully attempted to send new article notifications. ${sentCount}/${subscribers.length} emails potentially sent for article "${article.title}".`);
+
   } catch (error) {
-    console.error('Failed to send some new article notifications:', error);
+    // This top-level catch will handle errors from getActiveSubscribers or nodemailer.createTransport
+    console.error(`Critical error in sendNewArticleNotification for article "${article.title}":`, error);
+    // Depending on requirements, you might want to re-throw or handle differently.
+    // For now, we log it to prevent an unhandled rejection that could cause an ISE.
   }
 }
 
