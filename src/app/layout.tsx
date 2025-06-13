@@ -6,19 +6,23 @@ import Header from '@/components/Layout/Header';
 import Footer from '@/components/Layout/Footer';
 import { Toaster } from '@/components/ui/toaster';
 import { RuntimeConfigProvider } from '@/contexts/RuntimeConfigContext';
+import { Suspense } from 'react'; // Import Suspense
 
 export const metadata: Metadata = {
   title: 'Cloud Journal',
   description: 'A modern journal for cloud enthusiasts and developers.',
 };
 
+// A simple skeleton/placeholder for the Header
+function HeaderPlaceholder() {
+  return <div className="sticky top-0 z-50 h-[60px] w-full bg-card border-b border-border" />;
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Read from NEXT_PUBLIC_ prefixed versions for build-time availability to server components
-  // These values will be passed to the RuntimeConfigProvider and become "runtime" for client components
   const adminSecretUrlSegment = process.env.ADMIN_SECRET_URL_SEGMENT;
   const baseUrl = process.env.BASE_URL;
 
@@ -42,7 +46,9 @@ export default function RootLayout({
           baseUrl={baseUrl}
         >
           <AppProviders>
-            <Header />
+            <Suspense fallback={<HeaderPlaceholder />}>
+              <Header />
+            </Suspense>
             <main className="flex-grow container mx-auto px-4 py-8">
               {children}
             </main>
