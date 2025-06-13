@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -67,6 +68,11 @@ const detectAndCopyCodeSnippetFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await detectAndCopyCodeSnippetPrompt(input);
-    return output!;
+    if (!output) {
+      console.error('detectAndCopyCodeSnippetFlow: LLM output was missing.');
+      throw new Error('Failed to get a valid response from AI for code snippet detection.');
+    }
+    // hasCodeSnippet is boolean, codeSnippet is optional string. This check is sufficient.
+    return output;
   }
 );

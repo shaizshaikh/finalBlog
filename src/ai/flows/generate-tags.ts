@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -42,6 +43,11 @@ const generateTagsFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    if (!output || !Array.isArray(output.tags)) {
+      console.error('generateTagsFlow: LLM output was missing or invalid (tags not an array).', output);
+      // Return empty tags as a graceful fallback if AI fails to generate tags
+      return { tags: [] };
+    }
+    return output;
   }
 );

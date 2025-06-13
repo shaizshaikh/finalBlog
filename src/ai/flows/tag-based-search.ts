@@ -84,7 +84,12 @@ const aiEnhancedTagBasedSearchFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    if (!output || !Array.isArray(output)) {
+      console.error('aiEnhancedTagBasedSearchFlow: LLM output was missing or not an array.', output);
+      // Return empty array as a graceful fallback if AI fails
+      return [];
+    }
+    // Further validation could be added here to check if each item in the array matches the expected structure
+    return output;
   }
 );
-

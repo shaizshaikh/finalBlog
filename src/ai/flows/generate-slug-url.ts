@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -45,6 +46,10 @@ const generateSlugURLFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    return output!;
+    if (!output || !output.slug) {
+      console.error('generateSlugURLFlow: LLM output was missing or invalid (missing slug).', output);
+      throw new Error('Failed to generate a valid slug from AI.');
+    }
+    return output;
   }
 );

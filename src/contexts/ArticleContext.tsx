@@ -45,9 +45,12 @@ export const ArticleProvider = ({ children }: { children: ReactNode }) => {
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
 
   const fetchPage = useCallback(async (page: number, itemsPerPage: number = ARTICLES_PER_PAGE_ADMIN) => {
-    console.log(`ArticleContext: fetchPage called for page ${page}. Current isLoading: ${isLoading}, isLoadingMore: ${isLoadingMore}`);
-    if (page === 1 && !isLoadingMore) setIsLoading(true); // Set isLoading true only if it's the first page and not a "load more" scenario already in progress by another call
-    else setIsLoadingMore(true);
+    console.log(`ArticleContext: fetchPage called for page ${page}.`);
+    if (page === 1) {
+      setIsLoading(true);
+    } else {
+      setIsLoadingMore(true);
+    }
     
     try {
       const offset = (page - 1) * itemsPerPage;
@@ -76,15 +79,17 @@ export const ArticleProvider = ({ children }: { children: ReactNode }) => {
         setTotalPages(0);
       }
     } finally {
-      if (page === 1 && !isLoadingMore) setIsLoading(false);
-      else setIsLoadingMore(false);
+      if (page === 1) {
+        setIsLoading(false);
+      } else {
+        setIsLoadingMore(false);
+      }
       console.log(`ArticleContext: fetchPage finished for page ${page}. isLoading: ${isLoading}, isLoadingMore: ${isLoadingMore}`);
     }
-  }, [isLoading, isLoadingMore]); // Added isLoading and isLoadingMore to ensure stable function reference unless these change
+  }, []); // Removed isLoading and isLoadingMore from dependencies as their setting is handled within
 
   const fetchAllArticles = useCallback(async () => {
     console.log("ArticleContext: fetchAllArticles called.");
-    // This specific loading state is part of the main `isLoading` cycle via initialLoad
     try {
       const allFetchedArticles = await fetchAllArticlesFromDb();
       setAllArticlesForSearch(allFetchedArticles);
@@ -100,9 +105,7 @@ export const ArticleProvider = ({ children }: { children: ReactNode }) => {
       console.log("ArticleContext: Initial load starting...");
       setIsLoading(true);
       try {
-        // Fetch all articles first, as this is often a dependency for other operations or views
         await fetchAllArticles(); 
-        // Then fetch the first page for paginated views (e.g., admin)
         await fetchPage(1, ARTICLES_PER_PAGE_ADMIN);
         console.log("ArticleContext: Initial load completed successfully.");
       } catch(error) {
@@ -114,14 +117,12 @@ export const ArticleProvider = ({ children }: { children: ReactNode }) => {
     };
     initialLoad();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Relies on useCallback for stable fetchPage and fetchAllArticles
+  }, []);
 
 
   const getArticleBySlug = useCallback(async (slug: string): Promise<Article | undefined> => {
     console.log(`ArticleContext: getArticleBySlug attempting for slug: "${slug}". isContextLoading: ${isLoading}, allArticlesForSearch length: ${allArticlesForSearch.length}`);
     
-    // Attempt to find in allArticlesForSearch first
-    // Ensure allArticlesForSearch is not empty AND context is not in its initial loading phase before trusting it solely
     if (!isLoading && allArticlesForSearch.length > 0) {
         const foundInAll = allArticlesForSearch.find(a => a.slug === slug);
         if (foundInAll) {
@@ -133,11 +134,9 @@ export const ArticleProvider = ({ children }: { children: ReactNode }) => {
         console.log(`ArticleContext: INFO - Context is loading or allArticlesForSearch is empty. Forcing DB call for slug "${slug}".`);
     }
 
-
-    // Fallback to direct DB query
     try {
       console.log(`ArticleContext: Attempting DB fallback for slug "${slug}".`);
-      const articleFromDb = await getArticleBySlugFromDb(slug); // This is the DB call from articlesStore
+      const articleFromDb = await getArticleBySlugFromDb(slug); 
       if (articleFromDb) {
         console.log(`ArticleContext: SUCCESS - Found article "${slug}" via DB fallback.`);
       } else {
@@ -148,14 +147,14 @@ export const ArticleProvider = ({ children }: { children: ReactNode }) => {
       console.error(`ArticleContext: ERROR - DB fallback for slug "${slug}" failed:`, error);
       return undefined;
     }
-  }, [allArticlesForSearch, isLoading]); // isLoading is crucial here
+  }, [allArticlesForSearch, isLoading]);
 
   const addArticle = useCallback(async (articleData: ArticleContextCreationData): Promise<Article> => {
     console.log("ArticleContext: addArticle called.");
     try {
       const newArticle = await addArticleToDb(articleData);
-      await fetchAllArticles(); // Refresh all articles list first
-      await fetchPage(1, ARTICLES_PER_PAGE_ADMIN); // Then refresh admin to page 1
+      await fetchAllArticles(); 
+      await fetchPage(1, ARTICLES_PER_PAGE_ADMIN); 
       return newArticle;
     } catch (error) {
       console.error("ArticleContext: Failed to add article:", error);
@@ -235,4 +234,3 @@ export const useArticles = () => {
   }
   return context;
 };
-
