@@ -17,15 +17,16 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Read from NEXT_PUBLIC_ prefixed versions, as these are set in Docker build ARG/ENV
-  const adminSecretUrlSegment = process.env.NEXT_PUBLIC_ADMIN_SECRET_URL_SEGMENT;
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+  // Read from NEXT_PUBLIC_ prefixed versions for build-time availability to server components
+  // These values will be passed to the RuntimeConfigProvider and become "runtime" for client components
+  const adminSecretUrlSegment = process.env.ADMIN_SECRET_URL_SEGMENT;
+  const baseUrl = process.env.BASE_URL;
 
   if (!adminSecretUrlSegment) {
-    console.warn("RootLayout: NEXT_PUBLIC_ADMIN_SECRET_URL_SEGMENT is not defined. Admin links might use fallback.");
+    console.warn("RootLayout: ADMIN_SECRET_URL_SEGMENT is not defined. Admin links might use fallback. Ensure this env var is set.");
   }
   if (!baseUrl) {
-    console.warn("RootLayout: NEXT_PUBLIC_BASE_URL is not defined. Functionality relying on it might use fallback.");
+    console.warn("RootLayout: BASE_URL is not defined. Functionality relying on it might use fallback. Ensure this env var is set.");
   }
 
   return (

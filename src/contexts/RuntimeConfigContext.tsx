@@ -25,14 +25,14 @@ export const RuntimeConfigProvider = ({
   // though the build should ideally fail or they should be defaulted earlier.
   const config: RuntimeConfig = {
     adminSecretUrlSegment: adminSecretUrlSegment || "admin", // Default fallback
-    baseUrl: baseUrl || "http://localhost:3000", // Default fallback
+    baseUrl: baseUrl || "http://localhost:9002", // Default fallback
   };
 
   if (!adminSecretUrlSegment) {
-    console.warn("RuntimeConfigContext: adminSecretUrlSegment is undefined or empty. Falling back to default.");
+    console.warn("RuntimeConfigContext: adminSecretUrlSegment is undefined or empty during provider setup. Falling back to default 'admin'. This should be set via environment variables.");
   }
   if (!baseUrl) {
-    console.warn("RuntimeConfigContext: baseUrl is undefined or empty. Falling back to default.");
+    console.warn("RuntimeConfigContext: baseUrl is undefined or empty during provider setup. Falling back to default 'http://localhost:9002'. This should be set via environment variables.");
   }
 
   return (

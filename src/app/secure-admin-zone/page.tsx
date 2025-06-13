@@ -76,7 +76,7 @@ export default function AdminDashboardPage() {
     if (debouncedSearchTerm.trim() !== "") {
       processedArticles = processedArticles.filter(article =>
         article.title.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
-        article.author.toLowerCase().includes(debouncedSearchTerm.toLowerCase()) ||
+        (article.author && article.author.toLowerCase().includes(debouncedSearchTerm.toLowerCase())) ||
         article.tags.some(tag => tag.toLowerCase().includes(debouncedSearchTerm.toLowerCase()))
       );
     }
@@ -113,6 +113,14 @@ export default function AdminDashboardPage() {
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-300px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
         <p className="mt-4 text-lg text-muted-foreground">Loading articles...</p>
+      </div>
+    );
+  }
+  
+  if (!adminSecretUrlSegment) {
+     return (
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-300px)]">
+        <p className="mt-4 text-lg text-muted-foreground">Admin configuration not loaded. Please ensure ADMIN_SECRET_URL_SEGMENT is set.</p>
       </div>
     );
   }

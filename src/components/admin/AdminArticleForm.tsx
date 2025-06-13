@@ -111,6 +111,7 @@ export default function AdminArticleForm({ article }: AdminArticleFormProps) {
     const articleDataForStore = {
       ...data,
       tags: data.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+      image_url: data.imageUrl // ensure image_url is passed
     };
 
     try {
@@ -129,7 +130,12 @@ export default function AdminArticleForm({ article }: AdminArticleFormProps) {
             toast({ title: 'Notification Error', description: 'Could not send newsletter: article data incomplete.', variant: 'destructive'});
         }
       }
-      router.push(`/${adminSecretUrlSegment}`); 
+      if (adminSecretUrlSegment) {
+        router.push(`/${adminSecretUrlSegment}`); 
+      } else {
+        console.error("AdminArticleForm: adminSecretUrlSegment is not available for redirect.");
+        router.push('/'); // Fallback redirect
+      }
     } catch (error) {
       console.error('AdminArticleForm: Failed to save article:', error);
       toast({ title: 'Error saving article', description: (error instanceof Error ? error.message : 'An unknown error occurred.'), variant: 'destructive' });

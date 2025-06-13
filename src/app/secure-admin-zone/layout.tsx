@@ -22,6 +22,16 @@ export default function AdminLayout({
     router.push('/'); 
   };
 
+  if (!adminSecretUrlSegment) {
+    // This can happen if the context is not yet ready or if the env var is truly missing.
+    // It's a safeguard.
+    return (
+        <div className="flex flex-col items-center justify-center min-h-screen">
+            <p>Loading admin configuration...</p>
+        </div>
+    );
+  }
+
   return (
     <div className="min-h-screen">
       <header className="bg-secondary text-secondary-foreground p-4 shadow-md">

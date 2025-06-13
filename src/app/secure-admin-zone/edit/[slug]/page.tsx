@@ -47,7 +47,7 @@ export default function EditArticlePage() {
   }, [slug, getArticleBySlug]);
 
 
-  if (pageLoading || isContextLoading && article === undefined) { 
+  if (pageLoading || (isContextLoading && article === undefined)) { 
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-300px)]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -55,6 +55,14 @@ export default function EditArticlePage() {
       </div>
     );
   }
+  
+  if (!adminSecretUrlSegment) {
+    return (
+     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-300px)]">
+       <p className="mt-4 text-lg text-muted-foreground">Admin configuration not loaded.</p>
+     </div>
+   );
+ }
   
   if (article === null || article === undefined) { 
     return (

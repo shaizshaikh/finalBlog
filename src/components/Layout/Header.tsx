@@ -22,7 +22,7 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/components/ui/tooltip";
-import type { ArticleSortOption } from '@/lib/articlesStore';
+import type { ArticleSortOption } from '@/lib/articlesStore'; // Keep if used, else remove
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useRuntimeConfig } from '@/contexts/RuntimeConfigContext';
 
@@ -45,8 +45,8 @@ export default function Header() {
   useEffect(() => {
     setIsClient(true);
   }, []);
-
-  const isAdminPage = pathname.startsWith(`/${adminSecretUrlSegment}`);
+  
+  const isAdminPage = adminSecretUrlSegment ? pathname.startsWith(`/${adminSecretUrlSegment}`) : false;
   const isHomePage = pathname === '/';
   const activeSearchQuery = searchParams.get('q');
 
@@ -80,7 +80,7 @@ export default function Header() {
       if (isHomePage) {
         router.push(`/?${params.toString()}`, { scroll: false });
       } else {
-        router.push(`/?${params.toString()}`);
+        router.push(`/?${params.toString()}`); // Navigate to home for search from other pages
       }
     }, DEBOUNCE_DELAY);
   };
@@ -96,17 +96,9 @@ export default function Header() {
     } else {
       params.delete('q');
     }
-
-    const currentPathWithExistingParams = `${pathname}?${searchParams.toString()}`;
-    const newPathWithNewParams = `${isHomePage ? '/' : pathname}?${params.toString()}`;
     
-    if (currentPathWithExistingParams !== newPathWithNewParams || !isHomePage) {
-        if (isHomePage) {
-            router.push(`/?${params.toString()}`, { scroll: false });
-        } else {
-             router.push(`/?${params.toString()}`);
-        }
-    }
+    // Always redirect to homepage for search submission
+    router.push(`/?${params.toString()}`);
     
     if (searchInputRef.current) {
       searchInputRef.current.blur();
@@ -120,7 +112,7 @@ export default function Header() {
       setInputValue(''); 
       const params = new URLSearchParams(searchParams.toString());
       params.delete('q');
-      if (isHomePage) {
+      if (isHomePage) { // Only auto-update URL if on homepage when clearing
         router.push(`/?${params.toString()}`, { scroll: false });
       }
     }
@@ -134,7 +126,7 @@ export default function Header() {
     setCurrentSortOption(newSortOption);
     const params = new URLSearchParams(searchParams.toString());
     params.set('sort', newSortOption);
-    router.push(`/?${params.toString()}`, { scroll: false });
+    router.push(`/?${params.toString()}`, { scroll: false }); // Assuming sort is only for homepage
   }, [router, searchParams]);
 
   const sortButton = (
@@ -197,7 +189,7 @@ export default function Header() {
             </Button>
 
             {isHomePage &&
-              (isClient ? (
+              (isClient ? ( // Only render TooltipProvider and related on client
                 <TooltipProvider>
                   <Tooltip open={!!activeSearchQuery ? false : undefined}>
                     <TooltipTrigger asChild>
@@ -215,7 +207,7 @@ export default function Header() {
                     )}
                   </Tooltip>
                 </TooltipProvider>
-              ) : (
+              ) : ( // SSR/Pre-hydration: Render DropdownMenu without Tooltip
                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         {sortButton}
@@ -226,6 +218,7 @@ export default function Header() {
             <ThemeToggle />
           </nav>
         )}
+         {isAdminPage && <ThemeToggle />} 
       </div>
     </header>
   );

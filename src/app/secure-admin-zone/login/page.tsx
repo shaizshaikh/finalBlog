@@ -53,10 +53,12 @@ export default function AdminLoginPage() {
   }
   
   if (!adminSecretUrlSegment) {
+      // This case should ideally be rare if RootLayout provides a fallback.
+      // However, if context isn't ready or provides an empty string, this can be a guard.
       return (
         <div className="flex flex-col items-center justify-center min-h-screen text-center p-4">
           <h1 className="text-2xl font-bold text-destructive mb-4">Configuration Error</h1>
-          <p className="text-muted-foreground">Admin URL segment is not configured.</p>
+          <p className="text-muted-foreground">Admin URL context is not available. Please ensure ADMIN_SECRET_URL_SEGMENT is configured.</p>
         </div>
       );
   }
@@ -79,7 +81,7 @@ export default function AdminLoginPage() {
       } else if (result?.ok && result.url) {
         // Let useEffect handle redirect
       } else if (result?.ok && !result.url) {
-        // Let useEffect handle redirect
+        // Let useEffect handle redirect if session status changes
       }
        else {
         setError("An unexpected error occurred during sign-in.");
