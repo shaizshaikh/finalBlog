@@ -23,7 +23,8 @@ import {
   TooltipContent,
 } from "@/components/ui/tooltip";
 import type { ArticleSortOption } from '@/lib/articlesStore';
-import { ThemeToggle } from '@/components/ThemeToggle'; // Import the new ThemeToggle component
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { useRuntimeConfig } from '@/contexts/RuntimeConfigContext';
 
 const DEBOUNCE_DELAY = 500;
 
@@ -31,6 +32,7 @@ export default function Header() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const { adminSecretUrlSegment } = useRuntimeConfig();
 
   const [inputValue, setInputValue] = useState('');
   const [isSearchInputVisible, setIsSearchInputVisible] = useState(false);
@@ -44,7 +46,7 @@ export default function Header() {
     setIsClient(true);
   }, []);
 
-  const isAdminPage = pathname.startsWith(`/${process.env.NEXT_PUBLIC_ADMIN_SECRET_URL_SEGMENT}`);
+  const isAdminPage = pathname.startsWith(`/${adminSecretUrlSegment}`);
   const isHomePage = pathname === '/';
   const activeSearchQuery = searchParams.get('q');
 
@@ -214,7 +216,6 @@ export default function Header() {
                   </Tooltip>
                 </TooltipProvider>
               ) : (
-                // SSR / initial client render: DropdownMenu without Tooltip
                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         {sortButton}
@@ -222,7 +223,7 @@ export default function Header() {
                     {sortDropdownContent}
                 </DropdownMenu>
               ))}
-            <ThemeToggle /> {/* Add the ThemeToggle component here */}
+            <ThemeToggle />
           </nav>
         )}
       </div>

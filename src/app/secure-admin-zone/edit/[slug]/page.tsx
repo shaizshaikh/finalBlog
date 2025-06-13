@@ -13,8 +13,7 @@ import type { Article } from '@/types';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
-
-const adminBaseUrl = `/${process.env.NEXT_PUBLIC_ADMIN_SECRET_URL_SEGMENT || 'admin'}`;
+import { useRuntimeConfig } from '@/contexts/RuntimeConfigContext';
 
 export default function EditArticlePage() {
   const params = useParams();
@@ -22,6 +21,7 @@ export default function EditArticlePage() {
   const { getArticleBySlug, isLoading: isContextLoading } = useArticles(); 
   const [article, setArticle] = useState<Article | null | undefined>(undefined); 
   const [pageLoading, setPageLoading] = useState(true);
+  const { adminSecretUrlSegment } = useRuntimeConfig();
 
   const slug = typeof params.slug === 'string' ? params.slug : '';
 
@@ -62,7 +62,7 @@ export default function EditArticlePage() {
             <h1 className="text-4xl font-bold mb-4">Article Not Found</h1>
             <p className="text-muted-foreground mb-8">Sorry, we couldn't find the article to edit.</p>
             <Button asChild>
-            <Link href={adminBaseUrl}>Back to Admin Dashboard</Link>
+            <Link href={`/${adminSecretUrlSegment}`}>Back to Admin Dashboard</Link>
             </Button>
         </div>
     );

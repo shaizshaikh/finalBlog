@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation'; 
+import { useRuntimeConfig } from '@/contexts/RuntimeConfigContext';
 
 export default function AdminLayout({
   children,
@@ -14,7 +15,7 @@ export default function AdminLayout({
 }) {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const adminBaseUrl = `/${process.env.NEXT_PUBLIC_ADMIN_SECRET_URL_SEGMENT || 'admin'}`;
+  const { adminSecretUrlSegment } = useRuntimeConfig();
 
   const handleSignOut = async () => {
     await signOut({ redirect: false, callbackUrl: '/' }); 
@@ -25,7 +26,7 @@ export default function AdminLayout({
     <div className="min-h-screen">
       <header className="bg-secondary text-secondary-foreground p-4 shadow-md">
         <div className="container mx-auto flex justify-between items-center">
-          <Link href={adminBaseUrl} className="flex items-center gap-2">
+          <Link href={`/${adminSecretUrlSegment}`} className="flex items-center gap-2">
             <ShieldCheck className="h-7 w-7 text-primary" />
             <h1 className="text-2xl font-semibold font-headline">Admin Dashboard</h1>
           </Link>

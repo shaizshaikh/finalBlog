@@ -27,11 +27,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';
 import React, { useState, useMemo, useEffect } from 'react';
+import { useRuntimeConfig } from '@/contexts/RuntimeConfigContext';
 
 type SortOption = "newest" | "oldest" | "title-asc" | "title-desc";
 const ADMIN_SEARCH_DEBOUNCE_DELAY = 500;
-const adminBaseUrl = `/${process.env.NEXT_PUBLIC_ADMIN_SECRET_URL_SEGMENT || 'admin'}`;
-
 
 export default function AdminDashboardPage() {
   const {
@@ -45,6 +44,7 @@ export default function AdminDashboardPage() {
     totalArticles
   } = useArticles();
   const { toast } = useToast();
+  const { adminSecretUrlSegment } = useRuntimeConfig();
 
   const [searchTermInput, setSearchTermInput] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
@@ -131,7 +131,7 @@ export default function AdminDashboardPage() {
             {isAdminSearchVisible ? <XIcon className="h-5 w-5" /> : <Search className="h-5 w-5" />}
           </Button>
           <Button asChild>
-            <Link href={`${adminBaseUrl}/create`}>
+            <Link href={`/${adminSecretUrlSegment}/create`}>
               <PlusCircle className="mr-2 h-5 w-5" /> Create New Article
             </Link>
           </Button>
@@ -193,7 +193,7 @@ export default function AdminDashboardPage() {
                   <TableCell>{new Date(article.created_at).toLocaleDateString()}</TableCell>
                   <TableCell className="text-right space-x-2">
                     <Button variant="ghost" size="icon" asChild title="Edit Article" aria-label={`Edit article: ${article.title}`}>
-                      <Link href={`${adminBaseUrl}/edit/${article.slug}`}>
+                      <Link href={`/${adminSecretUrlSegment}/edit/${article.slug}`}>
                         <Edit className="h-4 w-4 text-blue-500" />
                       </Link>
                     </Button>

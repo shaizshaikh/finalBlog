@@ -18,6 +18,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Loader2, Wand2, TagsIcon } from 'lucide-react';
 import MarkdownRenderer from '../MarkdownRenderer'; 
 import { sendNewArticleNotification } from '@/app/actions/newsletterActions';
+import { useRuntimeConfig } from '@/contexts/RuntimeConfigContext';
 
 const articleSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
@@ -36,8 +37,6 @@ interface AdminArticleFormProps {
   article?: Article; 
 }
 
-const adminRedirectUrl = `/${process.env.NEXT_PUBLIC_ADMIN_SECRET_URL_SEGMENT || 'admin'}`;
-
 export default function AdminArticleForm({ article }: AdminArticleFormProps) {
   const { addArticle, updateArticle } = useArticles();
   const router = useRouter();
@@ -45,6 +44,7 @@ export default function AdminArticleForm({ article }: AdminArticleFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSlugLoading, setIsSlugLoading] = useState(false);
   const [isTagsLoading, setIsTagsLoading] = useState(false);
+  const { adminSecretUrlSegment } = useRuntimeConfig();
 
   const { control, handleSubmit, register, setValue, watch, formState: { errors } } = useForm<ArticleFormData>({
     resolver: zodResolver(articleSchema),
@@ -129,7 +129,7 @@ export default function AdminArticleForm({ article }: AdminArticleFormProps) {
             toast({ title: 'Notification Error', description: 'Could not send newsletter: article data incomplete.', variant: 'destructive'});
         }
       }
-      router.push(adminRedirectUrl); 
+      router.push(`/${adminSecretUrlSegment}`); 
     } catch (error) {
       console.error('AdminArticleForm: Failed to save article:', error);
       toast({ title: 'Error saving article', description: (error instanceof Error ? error.message : 'An unknown error occurred.'), variant: 'destructive' });
