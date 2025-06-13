@@ -5,6 +5,8 @@
 
 import AdminArticleForm from '@/components/admin/AdminArticleForm';
 
+export const dynamic = 'force-dynamic'; // Prevent prerendering issues
+
 export default function CreateArticlePage() {
   return (
     <div>

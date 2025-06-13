@@ -29,6 +29,8 @@ import { Badge } from '@/components/ui/badge';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useRuntimeConfig } from '@/contexts/RuntimeConfigContext';
 
+export const dynamic = 'force-dynamic'; // Prevent prerendering issues
+
 type SortOption = "newest" | "oldest" | "title-asc" | "title-desc";
 const ADMIN_SEARCH_DEBOUNCE_DELAY = 500;
 

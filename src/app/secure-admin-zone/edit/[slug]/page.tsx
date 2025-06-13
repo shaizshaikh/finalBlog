@@ -15,6 +15,8 @@ import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import { useRuntimeConfig } from '@/contexts/RuntimeConfigContext';
 
+export const dynamic = 'force-dynamic'; // Prevent prerendering issues
+
 export default function EditArticlePage() {
   const params = useParams();
   const router = useRouter();

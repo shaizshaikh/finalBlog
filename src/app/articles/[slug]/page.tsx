@@ -18,6 +18,8 @@ import CommentForm from '@/components/CommentForm';
 import { fetchComments } from '@/app/actions/commentActions';
 import { NewsletterDialog } from '@/components/NewsletterDialog';
 
+export const dynamic = 'force-dynamic'; // Prevent prerendering issues
+
 const COMMENTS_PER_PAGE = 5;
 
 export default function ArticlePage() {
