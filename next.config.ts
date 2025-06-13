@@ -19,9 +19,10 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Add the allowedDevOrigins configuration here at the top level
+  allowedDevOrigins: ['http://3000-firebase-studio-1749530652959.cluster-isls3qj2gbd5qs4jkjqvhahfv6.cloudworkstations.dev'],
   experimental: {
-    // Add the allowedDevOrigins configuration here
-    allowedDevOrigins: ['http://3000-firebase-studio-1749530652959.cluster-isls3qj2gbd5qs4jkjqvhahfv6.cloudworkstations.dev'],
+    // Remove allowedDevOrigins from here
   },
 };
 
